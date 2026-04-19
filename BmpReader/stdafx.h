@@ -39,7 +39,8 @@
 
 #include <atlimage.h>       // ÓÃÓÚ CImage Àà
 
-
+//#include <gdiplus.h>
+//#pragma comment(lib, "gdiplus.lib")
 
 
 

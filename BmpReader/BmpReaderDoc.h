@@ -15,6 +15,7 @@ protected: // create from serialization only
 // Attributes
 public:
 	CImageProc* pImage;
+	afx_msg void OnFileSave();
 public:
 
 // Operations
