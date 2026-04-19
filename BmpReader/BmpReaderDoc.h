@@ -1,6 +1,6 @@
 
 // BmpReaderDoc.h : interface of the CBmpReaderDoc class
-//这一行是米可的测试
+//
 
 
 #pragma once
