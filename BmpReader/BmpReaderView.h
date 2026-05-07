@@ -1,7 +1,4 @@
-
-// BmpReaderView.h : interface of the CBmpReaderView class
-//
-
+// BmpReaderView.h
 #pragma once
 #include "ColorInfoDlg.h"
 #include "HistogramDlg.h" 
@@ -11,23 +8,17 @@
 #define WM_USER_DESTROY_ADAPTIVE  (WM_USER + 101)
 class CBmpReaderDoc;
 
-
 class CBmpReaderView : public CView
 {
-protected: // create from serialization only
+protected:
 	CBmpReaderView();
 	DECLARE_DYNCREATE(CBmpReaderView)
 
-// Attributes
 public:
 	CBmpReaderDoc* GetDocument() const;
 
-// Operations
 public:
-
-// Overrides
-public:
-	virtual void OnDraw(CDC* pDC);  // overridden to draw this view
+	virtual void OnDraw(CDC* pDC);
 	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
 
 protected:
@@ -35,7 +26,6 @@ protected:
 	virtual void OnBeginPrinting(CDC* pDC, CPrintInfo* pInfo);
 	virtual void OnEndPrinting(CDC* pDC, CPrintInfo* pInfo);
 
-// Implementation
 public:
 	virtual ~CBmpReaderView();
 #ifdef _DEBUG
@@ -44,14 +34,15 @@ public:
 #endif
 
 protected:
-	CColorInfoDlg* m_pColorDlg;  
-// Generated message map functions
+	CColorInfoDlg* m_pColorDlg;
+
 protected:
 	afx_msg void OnFilePrintPreview();
 	afx_msg void OnRButtonUp(UINT nFlags, CPoint point);
 	afx_msg void OnContextMenu(CWnd* pWnd, CPoint point);
 	afx_msg void OnProcessAdaptiveHistogram();
 	DECLARE_MESSAGE_MAP()
+
 public:
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
@@ -68,19 +59,26 @@ public:
 	afx_msg void OnProcessMeanFilter();
 	afx_msg void OnProcessMedianFilter();
 	afx_msg void OnProcessMaxFilter();
+
+	// ========== 新增：噪声处理命令 ==========
+	afx_msg void OnProcessSaltPepper();
+	afx_msg void OnProcessImpulse();
+	afx_msg void OnProcessGaussian();
+	afx_msg void OnProcessWhiteGaussian();
+
 	afx_msg LRESULT OnDestroyHistogramDlg(WPARAM, LPARAM);
 	afx_msg LRESULT OnDestroyAdaptiveDlg(WPARAM, LPARAM);
-	void UpdateHistogramWindow();     // +++ 更新直方图窗口
-	void CloseHistogramWindow();      // +++ 关闭直方图窗口
-	void ApplyAdaptiveEqualize(int blockSize);   // 执行处理并刷新
-
+	void UpdateHistogramWindow();
+	void CloseHistogramWindow();
+	void ApplyAdaptiveEqualize(int blockSize);
 
 private:
-	BOOL m_bShowColorDlg;   // 是否显示颜色信息窗口
-	CHistogramDlg* m_pHistogramDlg;   // +++ 非模态直方图窗口指针
-	CBlockSizeDlg* m_pAdaptiveHistoDlg;          // 使用改造后的类
+	BOOL m_bShowColorDlg;
+	CHistogramDlg* m_pHistogramDlg;
+	CBlockSizeDlg* m_pAdaptiveHistoDlg;
+
 protected:
-	double m_zoomFactor;   // 缩放倍数，1.0为原始大小
+	double m_zoomFactor;
 	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
 	afx_msg void OnPaletteDefault();
 	afx_msg void OnPaletteHot();
@@ -89,8 +87,9 @@ protected:
 	afx_msg void OnPaletteInvert();
 };
 
-#ifndef _DEBUG  // debug version in BmpReaderView.cpp
+#ifndef _DEBUG
 inline CBmpReaderDoc* CBmpReaderView::GetDocument() const
-   { return reinterpret_cast<CBmpReaderDoc*>(m_pDocument); }
+{
+	return reinterpret_cast<CBmpReaderDoc*>(m_pDocument);
+}
 #endif
-
