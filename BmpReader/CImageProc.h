@@ -8,34 +8,39 @@ public:
 	CImageProc();
 	~CImageProc();
 
-	void OpenFile();                // ´ò¿ªÎÄ¼ş¶Ô»°¿ò
-	void LoadBmp(CString strPathName);   // ×ÔÖ÷½âÎöBMP
-	void LoadJpg(CString strPathName);   // À©Õ¹JPG£¨Ê¹ÓÃCImage£©
-	void ShowBMP(CDC* pDC);         // ÏÔÊ¾Í¼Ïñ
-	COLORREF GetColor(CDC* pDC, int x, int y);  // ·µ»ØÖ¸¶¨µãµÄÑÕÉ«
-	COLORREF GetPixelColorManual(int x, int y);//×Ô±à³Ì»ñÈ¡ÑÕÉ«
-	COLORREF GetOriginalPixel(int x, int y);   // ¸ù¾İÔ­Ê¼×ø±ê»ñÈ¡ÑÕÉ«
+	void OpenFile();                // æ‰“å¼€æ–‡ä»¶å¯¹è¯æ¡†
+	void LoadBmp(CString strPathName);   // è‡ªä¸»è§£æBMP
+	void LoadJpg(CString strPathName);   // æ‰©å±•JPGï¼ˆä½¿ç”¨CImageï¼‰
+	void ShowBMP(CDC* pDC);         // æ˜¾ç¤ºå›¾åƒ
+	COLORREF GetColor(CDC* pDC, int x, int y);  // è¿”å›æŒ‡å®šç‚¹çš„é¢œè‰²
+	COLORREF GetPixelColorManual(int x, int y);//è‡ªç¼–ç¨‹è·å–é¢œè‰²
+	COLORREF GetOriginalPixel(int x, int y);   // æ ¹æ®åŸå§‹åæ ‡è·å–é¢œè‰²
 
-	// Í¼ÏñÔöÇ¿º¯Êı
-	void ShowHistogram();                // ÏÔÊ¾»Ò¶ÈÖ±·½Í¼£¨µ¯³ö¶Ô»°¿ò£©
-	void LinearTransform(int low_in, int high_in, int low_out, int high_out); // ÏßĞÔ±ä»»
-	void HistogramEqualize();            // Ö±·½Í¼¾ùºâ»¯
-	void AdaptiveHistogramEqualize(int blockSize = 8);   // ¾Ö²¿Ö±·½Í¼¾ùºâ
-	bool HistogramSpecify(const CString& strTargetPath);// Ö±·½Í¼¹æ¸ñ»¯
-	void PaletteTransform();             // µ÷É«°å±ä»»
+	// å›¾åƒå¢å¼ºå‡½æ•°
+	void ShowHistogram();                // æ˜¾ç¤ºç°åº¦ç›´æ–¹å›¾ï¼ˆå¼¹å‡ºå¯¹è¯æ¡†ï¼‰
+	void LinearTransform(int low_in, int high_in, int low_out, int high_out); // çº¿æ€§å˜æ¢
+	void HistogramEqualize();            // ç›´æ–¹å›¾å‡è¡¡åŒ–
+	void AdaptiveHistogramEqualize(int blockSize = 8);   // å±€éƒ¨ç›´æ–¹å›¾å‡è¡¡
+	bool HistogramSpecify(const CString& strTargetPath);// ç›´æ–¹å›¾è§„æ ¼åŒ–
+	void PaletteTransform();             // è°ƒè‰²æ¿å˜æ¢
 	void CalculateHistogram(int hist[256], int& maxCount) const;
-	void ConvertToGray();                // ×ªÎª»Ò¶ÈÍ¼
-	void MeanFilter(int kSize);          // ¾ùÖµÂË²¨
-	void MedianFilter(int kSize);        // ÖĞÖµÂË²¨
-	void MaxFilter(int kSize);           // ×î´óÖµÂË²¨
+	void ConvertToGray();                // è½¬ä¸ºç°åº¦å›¾
+	void MeanFilter(int kSize);          // å‡å€¼æ»¤æ³¢
+	void MedianFilter(int kSize);        // ä¸­å€¼æ»¤æ³¢
+	void MaxFilter(int kSize);           // æœ€å¤§å€¼æ»¤æ³¢
+    
+    	// ========== æ–°å¢ï¼šè¾¹ç¼˜æ£€æµ‹å‡½æ•° ==========
+	void SobelEdgeDetection(int kernelSize = 3, int threshold = 80);
+	void PrewittEdgeDetection(int kernelSize = 3, int threshold = 80);
 
-	// ========== ĞÂÔö£ºÔëÉùÌí¼Óº¯Êı ==========
+
+	// ========== æ–°å¢ï¼šå™ªå£°æ·»åŠ å‡½æ•° ==========
 	void AddSaltPepperNoise(double saltProb = 0.05, double pepperProb = 0.05);
 	void AddImpulseNoise(double probability = 0.05);
 	void AddGaussianNoise(double mean = 0, double stddev = 25);
 	void AddWhiteGaussianNoise(double mean = 0, double stddev = 30);
 
-	// ³ÉÔ±±äÁ¿
+	// æˆå‘˜å˜é‡
 	HANDLE      m_hDib;
 	BYTE* pDib;
 	BITMAPFILEHEADER* pBFH;
