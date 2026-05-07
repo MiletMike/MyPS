@@ -6,6 +6,7 @@
 #include "ColorInfoDlg.h"
 #include "HistogramDlg.h" 
 #include "BlockSizeDlg.h"
+#include "CKernelSizeDlg.h"
 #define WM_USER_DESTROY_HIST  (WM_USER + 100)
 #define WM_USER_DESTROY_ADAPTIVE  (WM_USER + 101)
 class CBmpReaderDoc;
@@ -64,6 +65,9 @@ public:
 	afx_msg void OnProcessEqualize();
 	afx_msg void OnProcessSpecify();
 	afx_msg void OnProcessPalette();
+	afx_msg void OnProcessMeanFilter();
+	afx_msg void OnProcessMedianFilter();
+	afx_msg void OnProcessMaxFilter();
 	afx_msg LRESULT OnDestroyHistogramDlg(WPARAM, LPARAM);
 	afx_msg LRESULT OnDestroyAdaptiveDlg(WPARAM, LPARAM);
 	void UpdateHistogramWindow();     // +++ 更新直方图窗口

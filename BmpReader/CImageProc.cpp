@@ -5,6 +5,7 @@
 #include <atlimage.h>     // 用于CImage加载JPG
 #include <algorithm>
 #include <cmath>
+#include <vector>
 #include "HistogramDlg.h"
 CImageProc::CImageProc()
 	: m_nWidth(0), m_nHeight(0), m_pRGB24(nullptr)
@@ -897,4 +898,149 @@ bool CImageProc::HistogramSpecify(const CString& strTargetPath)
 	}
 
 	return true;
+}
+
+void CImageProc::MeanFilter(int kSize)
+{
+	if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0 || kSize % 2 == 0)
+		return;
+
+	ConvertToGray();   // 转为灰度图，简化处理
+
+	int width = m_nWidth;
+	int height = m_nHeight;
+	int bytesPerLine = ((width * 24 + 31) / 32) * 4;
+	int half = kSize / 2;
+
+	// 创建临时缓冲区保存原始灰度值
+	BYTE* src = new BYTE[width * height];
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+		for (int x = 0; x < width; x++)
+			src[y * width + x] = pRow[x * 3];   // 灰度值（三通道相同）
+	}
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+		for (int x = 0; x < width; x++)
+		{
+			int sum = 0, cnt = 0;
+			for (int dy = -half; dy <= half; dy++)
+			{
+				int ny = y + dy;
+				if (ny < 0 || ny >= height) continue;
+				for (int dx = -half; dx <= half; dx++)
+				{
+					int nx = x + dx;
+					if (nx < 0 || nx >= width) continue;
+					sum += src[ny * width + nx];
+					cnt++;
+				}
+			}
+			BYTE mean = (cnt > 0) ? (BYTE)(sum / cnt) : src[y * width + x];
+			pRow[x * 3] = pRow[x * 3 + 1] = pRow[x * 3 + 2] = mean;
+		}
+	}
+	delete[] src;
+}
+
+void CImageProc::MedianFilter(int kSize)
+{
+	if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0 || kSize % 2 == 0)
+		return;
+
+	ConvertToGray();
+
+	int width = m_nWidth;
+	int height = m_nHeight;
+	int bytesPerLine = ((width * 24 + 31) / 32) * 4;
+	int half = kSize / 2;
+
+	BYTE* src = new BYTE[width * height];
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+		for (int x = 0; x < width; x++)
+			src[y * width + x] = pRow[x * 3];
+	}
+
+	std::vector<BYTE> neighbors;
+	neighbors.reserve(kSize * kSize);
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+		for (int x = 0; x < width; x++)
+		{
+			neighbors.clear();
+			for (int dy = -half; dy <= half; dy++)
+			{
+				int ny = y + dy;
+				if (ny < 0 || ny >= height) continue;
+				for (int dx = -half; dx <= half; dx++)
+				{
+					int nx = x + dx;
+					if (nx < 0 || nx >= width) continue;
+					neighbors.push_back(src[ny * width + nx]);
+				}
+			}
+			if (neighbors.empty())
+			{
+				pRow[x * 3] = pRow[x * 3 + 1] = pRow[x * 3 + 2] = src[y * width + x];
+				continue;
+			}
+			std::nth_element(neighbors.begin(), neighbors.begin() + neighbors.size() / 2, neighbors.end());
+			BYTE med = neighbors[neighbors.size() / 2];
+			pRow[x * 3] = pRow[x * 3 + 1] = pRow[x * 3 + 2] = med;
+		}
+	}
+	delete[] src;
+}
+
+void CImageProc::MaxFilter(int kSize)
+{
+	if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0 || kSize % 2 == 0)
+		return;
+
+	ConvertToGray();
+
+	int width = m_nWidth;
+	int height = m_nHeight;
+	int bytesPerLine = ((width * 24 + 31) / 32) * 4;
+	int half = kSize / 2;
+
+	BYTE* src = new BYTE[width * height];
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+		for (int x = 0; x < width; x++)
+			src[y * width + x] = pRow[x * 3];
+	}
+
+	for (int y = 0; y < height; y++)
+	{
+		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+		for (int x = 0; x < width; x++)
+		{
+			BYTE maxVal = 0;
+			bool found = false;
+			for (int dy = -half; dy <= half; dy++)
+			{
+				int ny = y + dy;
+				if (ny < 0 || ny >= height) continue;
+				for (int dx = -half; dx <= half; dx++)
+				{
+					int nx = x + dx;
+					if (nx < 0 || nx >= width) continue;
+					BYTE val = src[ny * width + nx];
+					if (!found || val > maxVal) { maxVal = val; found = true; }
+				}
+			}
+			if (!found) maxVal = src[y * width + x];
+			pRow[x * 3] = pRow[x * 3 + 1] = pRow[x * 3 + 2] = maxVal;
+		}
+	}
+	delete[] src;
 }

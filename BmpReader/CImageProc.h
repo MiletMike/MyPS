@@ -26,6 +26,10 @@ public:
 	void CalculateHistogram(int hist[256], int& maxCount) const;
 	// 辅助函数：将当前24位图像转为灰度图（原地修改）
 	void ConvertToGray();
+	// 空域滤波（核大小可调，kSize 为奇数）
+	void MeanFilter(int kSize);
+	void MedianFilter(int kSize);
+	void MaxFilter(int kSize);
 	// 成员变量
 	HANDLE      m_hDib;
 	BYTE*       pDib;

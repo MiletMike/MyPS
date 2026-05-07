@@ -50,6 +50,9 @@ BEGIN_MESSAGE_MAP(CBmpReaderView, CView)
 	ON_COMMAND(ID_PALETTE_INVERT, &CBmpReaderView::OnPaletteInvert)
 	ON_MESSAGE(WM_USER_DESTROY_HIST, OnDestroyHistogramDlg)
 	ON_MESSAGE(WM_USER_DESTROY_ADAPTIVE, &CBmpReaderView::OnDestroyAdaptiveDlg)
+	ON_COMMAND(ID_PROCESS_MEANFILTER, &CBmpReaderView::OnProcessMeanFilter)
+	ON_COMMAND(ID_PROCESS_MEDIANFILTER, &CBmpReaderView::OnProcessMedianFilter)
+	ON_COMMAND(ID_PROCESS_MAXFILTER, &CBmpReaderView::OnProcessMaxFilter)
 END_MESSAGE_MAP()
 
 // CBmpReaderView construction/destruction
@@ -557,6 +560,48 @@ void CBmpReaderView::OnPaletteInvert()
 	if (pDoc && pDoc->pImage)
 	{
 		pDoc->pImage->ApplyPseudoColor(CImageProc::SCHEME_INVERT);
+		Invalidate();
+		UpdateHistogramWindow();
+	}
+}
+
+void CBmpReaderView::OnProcessMeanFilter()
+{
+	CBmpReaderDoc* pDoc = GetDocument();
+	if (!pDoc || !pDoc->pImage) return;
+
+	CKernelSizeDlg dlg;
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->pImage->MeanFilter(dlg.m_nKernelSize);
+		Invalidate();
+		UpdateHistogramWindow();
+	}
+}
+
+void CBmpReaderView::OnProcessMedianFilter()
+{
+	CBmpReaderDoc* pDoc = GetDocument();
+	if (!pDoc || !pDoc->pImage) return;
+
+	CKernelSizeDlg dlg;
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->pImage->MedianFilter(dlg.m_nKernelSize);
+		Invalidate();
+		UpdateHistogramWindow();
+	}
+}
+
+void CBmpReaderView::OnProcessMaxFilter()
+{
+	CBmpReaderDoc* pDoc = GetDocument();
+	if (!pDoc || !pDoc->pImage) return;
+
+	CKernelSizeDlg dlg;
+	if (dlg.DoModal() == IDOK)
+	{
+		pDoc->pImage->MaxFilter(dlg.m_nKernelSize);
 		Invalidate();
 		UpdateHistogramWindow();
 	}

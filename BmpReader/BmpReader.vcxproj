@@ -135,6 +135,7 @@
     <ClInclude Include="BmpReaderDoc.h" />
     <ClInclude Include="BmpReaderView.h" />
     <ClInclude Include="CImageProc.h" />
+    <ClInclude Include="CKernelSizeDlg.h" />
     <ClInclude Include="ClassView.h" />
     <ClInclude Include="ColorInfoDlg.h" />
     <ClInclude Include="FileView.h" />
@@ -153,6 +154,7 @@
     <ClCompile Include="BmpReaderDoc.cpp" />
     <ClCompile Include="BmpReaderView.cpp" />
     <ClCompile Include="CImageProc.cpp" />
+    <ClCompile Include="CKernelSizeDlg.cpp" />
     <ClCompile Include="ClassView.cpp" />
     <ClCompile Include="ColorInfoDlg.cpp" />
     <ClCompile Include="FileView.cpp" />
