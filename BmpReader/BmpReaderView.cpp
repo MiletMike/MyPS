@@ -51,12 +51,7 @@ BEGIN_MESSAGE_MAP(CBmpReaderView, CView)
 	ON_COMMAND(ID_PROCESS_MEDIANFILTER, &CBmpReaderView::OnProcessMedianFilter)
 	ON_COMMAND(ID_PROCESS_MAXFILTER, &CBmpReaderView::OnProcessMaxFilter)
 
-    	// ========== æ–°å¢ï¼šè¾¹ç¼˜æ£€æµ‹èœå•æ˜ å°„ ==========
-	ON_COMMAND(ID_PROCESS_SOBEL, &CBmpReaderView::OnProcessSobel)
-	ON_COMMAND(ID_PROCESS_PREWITT, &CBmpReaderView::OnProcessPrewitt)
-
-
-	// ========== æ–°å¢ï¼šå™ªå£°å¤„ç†å‘½ä»¤æ˜ å°„ ==========
+	// ========== ĞÂÔö£ºÔëÉù´¦ÀíÃüÁîÓ³Éä ==========
 	ON_COMMAND(ID_PROCESS_SALTPEPPER, &CBmpReaderView::OnProcessSaltPepper)
 	ON_COMMAND(ID_PROCESS_IMPULSE, &CBmpReaderView::OnProcessImpulse)
 	ON_COMMAND(ID_PROCESS_GAUSSIAN, &CBmpReaderView::OnProcessGaussian)
@@ -236,17 +231,17 @@ void CBmpReaderView::OnMouseMove(UINT nFlags, CPoint point)
 			origY >= 0 && origY < pDoc->pImage->m_nHeight)
 		{
 			COLORREF cr = pDoc->pImage->GetPixelColorManual(origX, origY);
-			strMsg.Format(_T("åŸå§‹åæ ‡: (%d, %d)  RGB: (%d, %d, %d)  [è§†å›¾åæ ‡: (%d, %d)]"),
+			strMsg.Format(_T("Ô­Ê¼×ø±ê: (%d, %d)  RGB: (%d, %d, %d)  [ÊÓÍ¼×ø±ê: (%d, %d)]"),
 				origX, origY, GetRValue(cr), GetGValue(cr), GetBValue(cr), point.x, point.y);
 		}
 		else
 		{
-			strMsg = _T("é¼ æ ‡è¶…å‡ºå›¾åƒèŒƒå›´");
+			strMsg = _T("Êó±ê³¬³öÍ¼Ïñ·¶Î§");
 		}
 	}
 	else
 	{
-		strMsg = _T("æœªæ‰“å¼€å›¾åƒ");
+		strMsg = _T("Î´´ò¿ªÍ¼Ïñ");
 	}
 
 	CMainFrame* pFrame = (CMainFrame*)AfxGetMainWnd();
@@ -303,7 +298,7 @@ void CBmpReaderView::OnToolZoomOut()
 
 void CBmpReaderView::OnToolGray()
 {
-	AfxMessageBox(_T("ç°åº¦åŒ–"));
+	AfxMessageBox(_T("»Ò¶È»¯"));
 }
 
 void CBmpReaderView::OnProcessHistogram()
@@ -360,13 +355,13 @@ void CBmpReaderView::OnProcessSpecify()
 	CBmpReaderDoc* pDoc = GetDocument();
 	if (!pDoc || !pDoc->pImage)
 	{
-		AfxMessageBox(_T("è¯·å…ˆæ‰“å¼€ä¸€å¼ å›¾åƒ"));
+		AfxMessageBox(_T("ÇëÏÈ´ò¿ªÒ»ÕÅÍ¼Ïñ"));
 		return;
 	}
 
 	CFileDialog dlg(TRUE, _T("bmp"), NULL,
 		OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT,
-		_T("å›¾åƒæ–‡ä»¶ (*.bmp;*.jpg)|*.bmp;*.jpg|æ‰€æœ‰æ–‡ä»¶ (*.*)|*.*||"));
+		_T("Í¼ÏñÎÄ¼ş (*.bmp;*.jpg)|*.bmp;*.jpg|ËùÓĞÎÄ¼ş (*.*)|*.*||"));
 	if (dlg.DoModal() != IDOK)
 		return;
 
@@ -379,7 +374,7 @@ void CBmpReaderView::OnProcessSpecify()
 	}
 	else
 	{
-		AfxMessageBox(_T("è§„æ ¼åŒ–å¤±è´¥ï¼Œè¯·ç¡®ä¿ç›®æ ‡å›¾åƒæ ¼å¼æ­£ç¡®"));
+		AfxMessageBox(_T("¹æ¸ñ»¯Ê§°Ü£¬ÇëÈ·±£Ä¿±êÍ¼Ïñ¸ñÊ½ÕıÈ·"));
 	}
 }
 
@@ -568,21 +563,21 @@ void CBmpReaderView::OnProcessMaxFilter()
 	}
 }
 
-// ========== å™ªå£°æ·»åŠ å‘½ä»¤å¤„ç† ==========
+// ========== ÔëÉùÌí¼ÓÃüÁî´¦Àí ==========
 
 void CBmpReaderView::OnProcessSaltPepper()
 {
 	CBmpReaderDoc* pDoc = GetDocument();
 	if (!pDoc || !pDoc->pImage)
 	{
-		AfxMessageBox(_T("è¯·å…ˆæ‰“å¼€ä¸€å¼ å›¾ç‰‡ï¼"));
+		AfxMessageBox(_T("ÇëÏÈ´ò¿ªÒ»ÕÅÍ¼Æ¬£¡"));
 		return;
 	}
 
 	pDoc->pImage->AddSaltPepperNoise(0.05, 0.05);
 	Invalidate();
 	UpdateHistogramWindow();
-	AfxMessageBox(_T("å·²æ·»åŠ æ¤’ç›å™ªå£°"));
+	AfxMessageBox(_T("ÒÑÌí¼Ó½·ÑÎÔëÉù"));
 }
 
 void CBmpReaderView::OnProcessImpulse()
@@ -590,14 +585,14 @@ void CBmpReaderView::OnProcessImpulse()
 	CBmpReaderDoc* pDoc = GetDocument();
 	if (!pDoc || !pDoc->pImage)
 	{
-		AfxMessageBox(_T("è¯·å…ˆæ‰“å¼€ä¸€å¼ å›¾ç‰‡ï¼"));
+		AfxMessageBox(_T("ÇëÏÈ´ò¿ªÒ»ÕÅÍ¼Æ¬£¡"));
 		return;
 	}
 
 	pDoc->pImage->AddImpulseNoise(0.05);
 	Invalidate();
 	UpdateHistogramWindow();
-	AfxMessageBox(_T("å·²æ·»åŠ è„‰å†²å™ªå£°"));
+	AfxMessageBox(_T("ÒÑÌí¼ÓÂö³åÔëÉù"));
 }
 
 void CBmpReaderView::OnProcessGaussian()
@@ -605,14 +600,14 @@ void CBmpReaderView::OnProcessGaussian()
 	CBmpReaderDoc* pDoc = GetDocument();
 	if (!pDoc || !pDoc->pImage)
 	{
-		AfxMessageBox(_T("è¯·å…ˆæ‰“å¼€ä¸€å¼ å›¾ç‰‡ï¼"));
+		AfxMessageBox(_T("ÇëÏÈ´ò¿ªÒ»ÕÅÍ¼Æ¬£¡"));
 		return;
 	}
 
 	pDoc->pImage->AddGaussianNoise(0, 25);
 	Invalidate();
 	UpdateHistogramWindow();
-	AfxMessageBox(_T("å·²æ·»åŠ é«˜æ–¯å™ªå£°"));
+	AfxMessageBox(_T("ÒÑÌí¼Ó¸ßË¹ÔëÉù"));
 }
 
 void CBmpReaderView::OnProcessWhiteGaussian()
@@ -620,50 +615,12 @@ void CBmpReaderView::OnProcessWhiteGaussian()
 	CBmpReaderDoc* pDoc = GetDocument();
 	if (!pDoc || !pDoc->pImage)
 	{
-		AfxMessageBox(_T("è¯·å…ˆæ‰“å¼€ä¸€å¼ å›¾ç‰‡ï¼"));
+		AfxMessageBox(_T("ÇëÏÈ´ò¿ªÒ»ÕÅÍ¼Æ¬£¡"));
 		return;
 	}
 
 	pDoc->pImage->AddWhiteGaussianNoise(0, 30);
 	Invalidate();
 	UpdateHistogramWindow();
-	AfxMessageBox(_T("å·²æ·»åŠ é«˜æ–¯ç™½å™ªå£°"));
-}
-
-// ========== è¾¹ç¼˜æ£€æµ‹èœå•å¤„ç†å‡½æ•° ==========
-
-void CBmpReaderView::OnProcessSobel()
-{
-	CBmpReaderDoc* pDoc = GetDocument();
-	if (!pDoc || !pDoc->pImage)
-	{
-		AfxMessageBox(_T("è¯·å…ˆæ‰“å¼€ä¸€å¼ å›¾ç‰‡"));
-		return;
-	}
-
-	CKernelSizeDlg dlg;
-	if (dlg.DoModal() == IDOK)
-	{
-		pDoc->pImage->SobelEdgeDetection(dlg.m_nKernelSize, 80);
-		Invalidate();
-		UpdateHistogramWindow();
-	}
-}
-
-void CBmpReaderView::OnProcessPrewitt()
-{
-	CBmpReaderDoc* pDoc = GetDocument();
-	if (!pDoc || !pDoc->pImage)
-	{
-		AfxMessageBox(_T("è¯·å…ˆæ‰“å¼€ä¸€å¼ å›¾ç‰‡"));
-		return;
-	}
-
-	CKernelSizeDlg dlg;
-	if (dlg.DoModal() == IDOK)
-	{
-		pDoc->pImage->PrewittEdgeDetection(dlg.m_nKernelSize, 80);
-		Invalidate();
-		UpdateHistogramWindow();
-	}
+	AfxMessageBox(_T("ÒÑÌí¼Ó¸ßË¹°×ÔëÉù"));
 }
