@@ -72,7 +72,7 @@ void CImageProc::LoadBmp(CString strPathName)
 	if (!file.Open(strPathName, CFile::modeRead)) return;
 
 	file.Read(pBFH, sizeof(BITMAPFILEHEADER));
-	if (pBFH->bfType != 0x4D42) { AfxMessageBox(_T("不是有效的BMP文件")); return; }
+	if (pBFH->bfType != 0x4D42) { AfxMessageBox(_T("������Ч��BMP�ļ�")); return; }
 	file.Read(pBIH, sizeof(BITMAPINFOHEADER));
 
 	nWidth = pBIH->biWidth;
@@ -845,7 +845,7 @@ void CImageProc::MaxFilter(int kSize)
 	delete[] src;
 }
 
-// ========== 噪声添加函数实现 ==========
+// ========== �������Ӻ���ʵ�� ==========
 
 void CImageProc::AddSaltPepperNoise(double saltProb, double pepperProb)
 {
@@ -946,156 +946,4 @@ void CImageProc::AddGaussianNoise(double mean, double stddev)
 void CImageProc::AddWhiteGaussianNoise(double mean, double stddev)
 {
 	AddGaussianNoise(mean, stddev);
-}
-
-// ============================================
-// Sobel 边缘检测
-// ============================================
-void CImageProc::SobelEdgeDetection(int kernelSize, int threshold)
-{
-	if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0 || kernelSize % 2 == 0)
-		return;
-	ConvertToGray();  // 先转灰度，简化处理
-	int width = m_nWidth;
-	int height = m_nHeight;
-	int bytesPerLine = ((width * 24 + 31) / 32) * 4;
-	int half = kernelSize / 2;
-	// 生成 Sobel 核
-	float* gx = new float[kernelSize * kernelSize];
-	float* gy = new float[kernelSize * kernelSize];
-	// 辅助 lambda：生成 Sobel 核
-	auto GenerateSobelKernels = [](float* gx, float* gy, int size) {
-		int half = size / 2;
-		float* smooth = new float[size];
-		float* deriv = new float[size];
-		for (int i = 0; i <= half; i++)
-			smooth[half + i] = smooth[half - i] = 1.0f;
-		for (int n = 1; n < half; n++)
-		{
-			for (int i = half; i > 0; i--)
-			{
-				smooth[half + i] = smooth[half + i] + smooth[half + i - 1];
-				smooth[half - i] = smooth[half + i];
-			}
-		}
-		for (int i = 0; i < size; i++)
-			deriv[i] = (float)(i - half);
-		for (int y = 0; y < size; y++)
-		{
-			for (int x = 0; x < size; x++)
-			{
-				gx[y * size + x] = deriv[x] * smooth[y];
-				gy[y * size + x] = smooth[x] * deriv[y];
-			}
-		}
-		delete[] smooth;
-		delete[] deriv;
-	};
-	GenerateSobelKernels(gx, gy, kernelSize);
-	// 计算归一化因子
-	float scale = 0;
-	for (int i = 0; i < kernelSize * kernelSize; i++)
-		scale += fabsf(gx[i]);
-	if (scale < 1.0f) scale = 1.0f;
-	// 临时缓冲区保存原始灰度值
-	BYTE* src = new BYTE[width * height];
-	for (int y = 0; y < height; y++)
-	{
-		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
-		for (int x = 0; x < width; x++)
-			src[y * width + x] = pRow[x * 3];
-	}
-	// 遍历每个像素（跳过边界）
-	for (int y = half; y < height - half; y++)
-	{
-		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
-		for (int x = half; x < width - half; x++)
-		{
-			float sumX = 0, sumY = 0;
-			for (int ky = -half; ky <= half; ky++)
-			{
-				for (int kx = -half; kx <= half; kx++)
-				{
-					int pixel = src[(y + ky) * width + (x + kx)];
-					int kidx = (ky + half) * kernelSize + (kx + half);
-					sumX += pixel * gx[kidx];
-					sumY += pixel * gy[kidx];
-				}
-			}
-			sumX /= scale;
-			sumY /= scale;
-			float magnitude = sqrtf(sumX * sumX + sumY * sumY);
-			BYTE val = ((int)magnitude > threshold) ? 255 : 0;
-			pRow[x * 3] = pRow[x * 3 + 1] = pRow[x * 3 + 2] = val;
-		}
-	}
-	delete[] src;
-	delete[] gx;
-	delete[] gy;
-}
-
-// ============================================
-// Prewitt 边缘检测
-// ============================================
-void CImageProc::PrewittEdgeDetection(int kernelSize, int threshold)
-{
-	if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0 || kernelSize % 2 == 0)
-		return;
-	ConvertToGray();
-	int width = m_nWidth;
-	int height = m_nHeight;
-	int bytesPerLine = ((width * 24 + 31) / 32) * 4;
-	int half = kernelSize / 2;
-	float* gx = new float[kernelSize * kernelSize];
-	float* gy = new float[kernelSize * kernelSize];
-	// 辅助 lambda：生成 Prewitt 核
-	auto GeneratePrewittKernels = [](float* gx, float* gy, int size) {
-		int half = size / 2;
-		for (int y = 0; y < size; y++)
-		{
-			for (int x = 0; x < size; x++)
-			{
-				gx[y * size + x] = (float)(x - half);
-				gy[y * size + x] = (float)(y - half);
-			}
-		}
-	};
-	GeneratePrewittKernels(gx, gy, kernelSize);
-	float scale = 0;
-	for (int i = 0; i < kernelSize * kernelSize; i++)
-		scale += fabsf(gx[i]);
-	if (scale < 1.0f) scale = 1.0f;
-	BYTE* src = new BYTE[width * height];
-	for (int y = 0; y < height; y++)
-	{
-		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
-		for (int x = 0; x < width; x++)
-			src[y * width + x] = pRow[x * 3];
-	}
-	for (int y = half; y < height - half; y++)
-	{
-		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
-		for (int x = half; x < width - half; x++)
-		{
-			float sumX = 0, sumY = 0;
-			for (int ky = -half; ky <= half; ky++)
-			{
-				for (int kx = -half; kx <= half; kx++)
-				{
-					int pixel = src[(y + ky) * width + (x + kx)];
-					int kidx = (ky + half) * kernelSize + (kx + half);
-					sumX += pixel * gx[kidx];
-					sumY += pixel * gy[kidx];
-				}
-			}
-			sumX /= scale;
-			sumY /= scale;
-			float magnitude = sqrtf(sumX * sumX + sumY * sumY);
-			BYTE val = ((int)magnitude > threshold) ? 255 : 0;
-			pRow[x * 3] = pRow[x * 3 + 1] = pRow[x * 3 + 2] = val;
-		}
-	}
-	delete[] src;
-	delete[] gx;
-	delete[] gy;
 }
