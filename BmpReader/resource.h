@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
-// Microsoft Visual C++ …˙≥…µƒ∞¸∫¨Œƒº˛°£
-// π© BmpReader.rc  π”√
+// Microsoft Visual C++ ÁîüÊàêÁöÑÂåÖÂê´Êñá‰ª∂„ÄÇ
+// ‰æõ BmpReader.rc ‰ΩøÁî®
 //
 #define IDD_ABOUTBOX                    100
 #define IDP_OLE_INIT_FAILED             100
@@ -145,21 +145,18 @@
 #define ID_PROCESS_GAUSSIAN             32815
 #define ID_NOISE_32815                  32815
 #define ID_PROCESS_WHITEGAUSSIAN        32816
-#define ID_NOISE_32816                  32816
-#define ID_NOISE_32817                  32817
 #define ID_PROCESS_SOBEL                32818
 #define ID_PROCESS_PREWITT              32819
-#define ID_PROCESS_32820                32820
-#define ID_32821                        32821
-#define ID_32822                        32822
-#define ID_32823                        32823
+
+#define ID_NOISE_32816                  32816
+#define ID_NOISE_32817                  32817
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        328
-#define _APS_NEXT_COMMAND_VALUE         32824
+#define _APS_NEXT_COMMAND_VALUE         32820
 #define _APS_NEXT_CONTROL_VALUE         1011
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
