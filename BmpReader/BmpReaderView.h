@@ -60,12 +60,7 @@ public:
 	afx_msg void OnProcessMedianFilter();
 	afx_msg void OnProcessMaxFilter();
 
-    	// ========== æ–°å¢ï¼šè¾¹ç¼˜æ£€æµ‹èœå•å“åº” ==========
-	afx_msg void OnProcessSobel();
-	afx_msg void OnProcessPrewitt();
-
-
-	// ==========  ==========
+	// ========== ĞÂÔö£ºÔëÉù´¦ÀíÃüÁî ==========
 	afx_msg void OnProcessSaltPepper();
 	afx_msg void OnProcessImpulse();
 	afx_msg void OnProcessGaussian();
