@@ -949,153 +949,126 @@ void CImageProc::AddWhiteGaussianNoise(double mean, double stddev)
 }
 
 // ============================================
-// Sobel 边缘检测
+// Sobel 边缘检测（固定使用 3x3 算子）
 // ============================================
 void CImageProc::SobelEdgeDetection(int kernelSize, int threshold)
 {
-	if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0 || kernelSize % 2 == 0)
+	if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0)
 		return;
-	ConvertToGray();  // 先转灰度，简化处理
+
+	// 仅支持 3x3 核，若传入其他尺寸则提示并返回（或可自动改为3）
+	if (kernelSize != 3) {
+		AfxMessageBox(_T("Sobel 边缘检测目前仅支持 3x3 核大小"));
+		return;
+	}
+
+	// 先转为灰度图像
+	ConvertToGray();
+
 	int width = m_nWidth;
 	int height = m_nHeight;
 	int bytesPerLine = ((width * 24 + 31) / 32) * 4;
-	int half = kernelSize / 2;
-	// 生成 Sobel 核
-	float* gx = new float[kernelSize * kernelSize];
-	float* gy = new float[kernelSize * kernelSize];
-	// 辅助 lambda：生成 Sobel 核
-	auto GenerateSobelKernels = [](float* gx, float* gy, int size) {
-		int half = size / 2;
-		float* smooth = new float[size];
-		float* deriv = new float[size];
-		for (int i = 0; i <= half; i++)
-			smooth[half + i] = smooth[half - i] = 1.0f;
-		for (int n = 1; n < half; n++)
-		{
-			for (int i = half; i > 0; i--)
-			{
-				smooth[half + i] = smooth[half + i] + smooth[half + i - 1];
-				smooth[half - i] = smooth[half + i];
-			}
-		}
-		for (int i = 0; i < size; i++)
-			deriv[i] = (float)(i - half);
-		for (int y = 0; y < size; y++)
-		{
-			for (int x = 0; x < size; x++)
-			{
-				gx[y * size + x] = deriv[x] * smooth[y];
-				gy[y * size + x] = smooth[x] * deriv[y];
-			}
-		}
-		delete[] smooth;
-		delete[] deriv;
-	};
-	GenerateSobelKernels(gx, gy, kernelSize);
-	// 计算归一化因子
-	float scale = 0;
-	for (int i = 0; i < kernelSize * kernelSize; i++)
-		scale += fabsf(gx[i]);
-	if (scale < 1.0f) scale = 1.0f;
-	// 临时缓冲区保存原始灰度值
+
+	// 标准 3x3 Sobel 算子
+	float gx[9] = { -1, 0, 1,
+					-2, 0, 2,
+					-1, 0, 1 };
+
+	float gy[9] = { -1, -2, -1,
+					 0,  0,  0,
+					 1,  2,  1 };
+
+	// 备份原始灰度数据（单通道）
 	BYTE* src = new BYTE[width * height];
-	for (int y = 0; y < height; y++)
-	{
+	for (int y = 0; y < height; y++) {
 		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
-		for (int x = 0; x < width; x++)
-			src[y * width + x] = pRow[x * 3];
+		for (int x = 0; x < width; x++) {
+			src[y * width + x] = pRow[x * 3];   // 灰度图 R=G=B，取任一通道
+		}
 	}
-	// 遍历每个像素（跳过边界）
-	for (int y = half; y < height - half; y++)
-	{
+
+	int half = 1;  // 3x3 核半径
+	for (int y = half; y < height - half; y++) {
 		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
-		for (int x = half; x < width - half; x++)
-		{
+		for (int x = half; x < width - half; x++) {
 			float sumX = 0, sumY = 0;
-			for (int ky = -half; ky <= half; ky++)
-			{
-				for (int kx = -half; kx <= half; kx++)
-				{
+			for (int ky = -half; ky <= half; ky++) {
+				for (int kx = -half; kx <= half; kx++) {
 					int pixel = src[(y + ky) * width + (x + kx)];
-					int kidx = (ky + half) * kernelSize + (kx + half);
+					int kidx = (ky + half) * 3 + (kx + half);
 					sumX += pixel * gx[kidx];
 					sumY += pixel * gy[kidx];
 				}
 			}
-			sumX /= scale;
-			sumY /= scale;
+			// 计算梯度幅值
 			float magnitude = sqrtf(sumX * sumX + sumY * sumY);
-			BYTE val = ((int)magnitude > threshold) ? 255 : 0;
+			// 二值化
+			BYTE val = (magnitude > threshold) ? 255 : 0;
+			// 写回图像（彩色格式，三通道相同值）
 			pRow[x * 3] = pRow[x * 3 + 1] = pRow[x * 3 + 2] = val;
 		}
 	}
+
 	delete[] src;
-	delete[] gx;
-	delete[] gy;
 }
 
 // ============================================
-// Prewitt 边缘检测
+// Prewitt 边缘检测（固定 3x3 算子）
 // ============================================
 void CImageProc::PrewittEdgeDetection(int kernelSize, int threshold)
 {
-	if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0 || kernelSize % 2 == 0)
+	if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0)
 		return;
+
+	// 仅支持 3x3 核，若传入其他尺寸则提示并返回
+	if (kernelSize != 3) {
+		AfxMessageBox(_T("Prewitt 边缘检测目前仅支持 3x3 核大小"));
+		return;
+	}
+
 	ConvertToGray();
+
 	int width = m_nWidth;
 	int height = m_nHeight;
 	int bytesPerLine = ((width * 24 + 31) / 32) * 4;
-	int half = kernelSize / 2;
-	float* gx = new float[kernelSize * kernelSize];
-	float* gy = new float[kernelSize * kernelSize];
-	// 辅助 lambda：生成 Prewitt 核
-	auto GeneratePrewittKernels = [](float* gx, float* gy, int size) {
-		int half = size / 2;
-		for (int y = 0; y < size; y++)
-		{
-			for (int x = 0; x < size; x++)
-			{
-				gx[y * size + x] = (float)(x - half);
-				gy[y * size + x] = (float)(y - half);
-			}
-		}
-	};
-	GeneratePrewittKernels(gx, gy, kernelSize);
-	float scale = 0;
-	for (int i = 0; i < kernelSize * kernelSize; i++)
-		scale += fabsf(gx[i]);
-	if (scale < 1.0f) scale = 1.0f;
+
+	// 标准 3x3 Prewitt 算子
+	float gx[9] = { -1, 0, 1,
+					-1, 0, 1,
+					-1, 0, 1 };
+	float gy[9] = { -1, -1, -1,
+					 0,  0,  0,
+					 1,  1,  1 };
+
+	// 备份原始灰度数据
 	BYTE* src = new BYTE[width * height];
-	for (int y = 0; y < height; y++)
-	{
+	for (int y = 0; y < height; y++) {
 		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
-		for (int x = 0; x < width; x++)
+		for (int x = 0; x < width; x++) {
 			src[y * width + x] = pRow[x * 3];
+		}
 	}
-	for (int y = half; y < height - half; y++)
-	{
+
+	int half = 1;
+	for (int y = half; y < height - half; y++) {
 		BYTE* pRow = m_pRGB24 + y * bytesPerLine;
-		for (int x = half; x < width - half; x++)
-		{
+		for (int x = half; x < width - half; x++) {
 			float sumX = 0, sumY = 0;
-			for (int ky = -half; ky <= half; ky++)
-			{
-				for (int kx = -half; kx <= half; kx++)
-				{
+			for (int ky = -half; ky <= half; ky++) {
+				for (int kx = -half; kx <= half; kx++) {
 					int pixel = src[(y + ky) * width + (x + kx)];
-					int kidx = (ky + half) * kernelSize + (kx + half);
+					int kidx = (ky + half) * 3 + (kx + half);
 					sumX += pixel * gx[kidx];
 					sumY += pixel * gy[kidx];
 				}
 			}
-			sumX /= scale;
-			sumY /= scale;
+			// 不除以归一化因子，直接计算幅值，范围约 0~255*3 = 765
 			float magnitude = sqrtf(sumX * sumX + sumY * sumY);
-			BYTE val = ((int)magnitude > threshold) ? 255 : 0;
+			// 可选：限制到 0~255 以便二值化（但并不必须，因为比较阈值即可）
+			BYTE val = (magnitude > threshold) ? 255 : 0;
 			pRow[x * 3] = pRow[x * 3 + 1] = pRow[x * 3 + 2] = val;
 		}
 	}
+
 	delete[] src;
-	delete[] gx;
-	delete[] gy;
 }
