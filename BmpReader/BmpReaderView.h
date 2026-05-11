@@ -59,18 +59,17 @@ public:
 	afx_msg void OnProcessMeanFilter();
 	afx_msg void OnProcessMedianFilter();
 	afx_msg void OnProcessMaxFilter();
-
-    	// ========== 新增：边缘检测菜单响应 ==========
 	afx_msg void OnProcessSobel();
 	afx_msg void OnProcessPrewitt();
-
-
-	// ==========  ==========
 	afx_msg void OnProcessSaltPepper();
 	afx_msg void OnProcessImpulse();
 	afx_msg void OnProcessGaussian();
 	afx_msg void OnProcessWhiteGaussian();
-
+	afx_msg void OnProcessAddImages();          // 图像相加
+	afx_msg void OnProcessMultiplyImages();     // 图像相乘
+	afx_msg void OnProcessRestoreOriginal();    // 返回原图
+	afx_msg void OnProcessLaplacian();          // 拉普拉斯边缘检测
+	afx_msg void OnProcessPowerLaw();           // 幂律变换
 	afx_msg LRESULT OnDestroyHistogramDlg(WPARAM, LPARAM);
 	afx_msg LRESULT OnDestroyAdaptiveDlg(WPARAM, LPARAM);
 	void UpdateHistogramWindow();

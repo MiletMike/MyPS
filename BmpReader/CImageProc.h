@@ -1,6 +1,7 @@
 // CImageProc.h
 #pragma once
 #include <afxwin.h>
+#include "HistogramDlg.h"
 
 class CImageProc
 {
@@ -28,9 +29,16 @@ public:
 	void MeanFilter(int kSize);          // 均值滤波
 	void MedianFilter(int kSize);        // 中值滤波
 	void MaxFilter(int kSize);           // 最大值滤波
-    
-    	// ========== 新增：边缘检测函数 ==========
-	void SobelEdgeDetection(int kernelSize = 3, int threshold = 80);
+	bool AddImages(const CString& strSecondImagePath);      // 图像相加
+	bool MultiplyImages(const CString& strSecondImagePath); // 图像相乘
+	bool RestoreOriginal();                                  // 返回原图
+	void LaplacianEdgeDetection(int kernelSize = 3, int threshold = 30);        // 拉普拉斯边缘检测
+	void PowerLawTransform(double gamma = 0.5);              // 幂律变换
+
+	// 保存原始图像数据（用于恢复）
+	void SaveOriginalData();                                 // 保存原始数据
+	// ====================================
+	void SobelEdgeDetection(int kernelSize = 3, int threshold = 80, bool bBinaryOutput = true);
 	void PrewittEdgeDetection(int kernelSize = 3, int threshold = 80);
 
 
@@ -70,4 +78,7 @@ private:
 	DWORD m_dwRedMask, m_dwGreenMask, m_dwBlueMask;
 	int   m_nRedShift, m_nGreenShift, m_nBlueShift;
 	int   m_nRedBits, m_nGreenBits, m_nBlueBits;
+	BYTE* m_pOriginalRGB24;      // 原始图像数据备份
+	int m_nOriginalWidth;        // 原始图像宽度
+	int m_nOriginalHeight;       // 原始图像高度
 };

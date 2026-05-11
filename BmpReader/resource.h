@@ -89,6 +89,8 @@
 #define IDD_INPUT_BLOCKSIZE             317
 #define IDD_DIALOG1                     318
 #define IDD_KERNELSIZE                  320
+#define IDD_DIALOG2                     328
+#define IDD_INPUT_DLG                   328
 #define IDC_COORD_TEXT                  1000
 #define IDC_COLOR                       1001
 #define IDC_COLOR_TEXT                  1001
@@ -98,6 +100,9 @@
 #define IDC_SLIDER_BLOCKSIZE            1007
 #define IDC_EDIT_KERNELSIZE             1009
 #define ID_SPIN_KERNELSIZE              1010
+#define IDC_STATIC_PROMPT               1012
+#define IDC_STATIC_RANGE_TIP            1013
+#define IDC_STATIC_KERNELSIZE           1014
 #define ID_PIXELSHOW                    32771
 #define ID_VIEW_SHOWPIXEL               32772
 #define ID_TOOL_ZOOMIN                  32773
@@ -153,13 +158,24 @@
 #define ID_32821                        32821
 #define ID_32822                        32822
 #define ID_32823                        32823
+#define ID_PROCESS_32824                32824
+#define ID_PROCESS_32825                32825
+#define ID_32826                        32826
+#define ID_32827                        32827
+#define ID_32828                        32828
+#define ID_32829                        32829
+#define ID_PROCESS_ADD_IMAGES           32830
+#define ID_PROCESS_MULTIPLY_IMAGES      32831
+#define ID_PROCESS_RESTORE_ORIGINAL     32832
+#define ID_PROCESS_LAPLACIAN            32833
+#define ID_PROCESS_POWER_LAW            32834
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        328
-#define _APS_NEXT_COMMAND_VALUE         32824
+#define _APS_NEXT_RESOURCE_VALUE        330
+#define _APS_NEXT_COMMAND_VALUE         32832
 #define _APS_NEXT_CONTROL_VALUE         1011
 #define _APS_NEXT_SYMED_VALUE           310
 #endif

@@ -1,4 +1,4 @@
-// HistogramDlg.cpp
+ï»¿// HistogramDlg.cpp
 #include "stdafx.h"
 #include "BmpReader.h"
 #include "HistogramDlg.h"
@@ -23,27 +23,27 @@ void CHistogramDlg::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(CHistogramDlg, CDialogEx)
 	ON_WM_PAINT()
-	ON_WM_DESTROY() 
+	ON_WM_DESTROY()
 END_MESSAGE_MAP()
 
-// +++ ·ÇÄ£Ì¬´´½¨º¯Êı
+// +++ éæ¨¡æ€åˆ›å»ºå‡½æ•°
 BOOL CHistogramDlg::Create(UINT nIDTemplate, CWnd* pParentWnd)
 {
 	return CDialogEx::Create(nIDTemplate, pParentWnd);
 }
 
-// +++ ·ÇÄ£Ì¬´°¿ÚÏú»ÙÊ±ÊÍ·Å×ÔÉí
+// +++ éæ¨¡æ€çª—å£é”€æ¯æ—¶é‡Šæ”¾è‡ªèº«
 void CHistogramDlg::PostNcDestroy()
 {
 	CDialogEx::PostNcDestroy();
-	delete this;   // ±ØĞë£¡ÒòÎª·ÇÄ£Ì¬¶Ô»°¿òÍ¨³£ÓÃ new ´´½¨
+	delete this;   // å¿…é¡»ï¼å› ä¸ºéæ¨¡æ€å¯¹è¯æ¡†é€šå¸¸ç”¨ new åˆ›å»º
 }
 
 void CHistogramDlg::SetHistogramData(int* pHist, int maxCount)
 {
 	memcpy(m_hist, pHist, sizeof(int) * 256);
 	m_maxCount = maxCount;
-	if (GetSafeHwnd())          // ´°¿ÚÒÑ´´½¨ÔòË¢ĞÂ
+	if (GetSafeHwnd())          // çª—å£å·²åˆ›å»ºåˆ™åˆ·æ–°
 		Invalidate();
 }
 
@@ -53,14 +53,14 @@ void CHistogramDlg::OnPaint()
 	CRect rect;
 	GetClientRect(rect);
 
-	// Ìî³ä°×É«±³¾°
+	// å¡«å……ç™½è‰²èƒŒæ™¯
 	dc.FillSolidRect(rect, RGB(255, 255, 255));
 
-	// ¶¨Òå»æÍ¼ÇøÓò£¬Áô³ö±ß¾àÓÃÓÚ×ø±êÖáºÍ±êÇ©
-	const int marginLeft = 50;   // ×ó²àÁô¿Õ¸ø×İÖá±êÇ©
-	const int marginRight = 20;  // ÓÒ²àÁô¿Õ
-	const int marginTop = 20;    // ¶¥²¿Áô¿Õ
-	const int marginBottom = 40;  // µ×²¿Áô¿Õ¸øºáÖá±êÇ©
+	// å®šä¹‰ç»˜å›¾åŒºåŸŸï¼Œç•™å‡ºè¾¹è·ç”¨äºåæ ‡è½´å’Œæ ‡ç­¾
+	const int marginLeft = 50;   // å·¦ä¾§ç•™ç©ºç»™çºµè½´æ ‡ç­¾
+	const int marginRight = 20;  // å³ä¾§ç•™ç©º
+	const int marginTop = 20;    // é¡¶éƒ¨ç•™ç©º
+	const int marginBottom = 40;  // åº•éƒ¨ç•™ç©ºç»™æ¨ªè½´æ ‡ç­¾
 
 	int plotWidth = rect.Width() - marginLeft - marginRight;
 	int plotHeight = rect.Height() - marginTop - marginBottom;
@@ -69,33 +69,33 @@ void CHistogramDlg::OnPaint()
 	int plotTop = marginTop;
 	int plotBottom = rect.Height() - marginBottom;
 
-	// »­×ø±êÖá£¨ºÚÉ«ÊµÏß£©
+	// ç”»åæ ‡è½´ï¼ˆé»‘è‰²å®çº¿ï¼‰
 	CPen penAxis(PS_SOLID, 1, RGB(0, 0, 0));
 	dc.SelectObject(&penAxis);
-	// ºáÖá
+	// æ¨ªè½´
 	dc.MoveTo(plotLeft, plotBottom);
 	dc.LineTo(plotRight, plotBottom);
-	// ×İÖá
+	// çºµè½´
 	dc.MoveTo(plotLeft, plotTop);
 	dc.LineTo(plotLeft, plotBottom);
 
-	// »­¼ıÍ·£¨¼òµ¥Ğ¡Èı½ÇĞÎ£©
+	// ç”»ç®­å¤´ï¼ˆç®€å•å°ä¸‰è§’å½¢ï¼‰
 	CPen penArrow(PS_SOLID, 1, RGB(0, 0, 0));
 	dc.SelectObject(&penArrow);
-	// ºáÖá¼ıÍ·
+	// æ¨ªè½´ç®­å¤´
 	dc.MoveTo(plotRight - 5, plotBottom - 3);
 	dc.LineTo(plotRight, plotBottom);
 	dc.LineTo(plotRight - 5, plotBottom + 3);
-	// ×İÖá¼ıÍ·
+	// çºµè½´ç®­å¤´
 	dc.MoveTo(plotLeft - 3, plotTop + 5);
 	dc.LineTo(plotLeft, plotTop);
 	dc.LineTo(plotLeft + 3, plotTop + 5);
 
-	// ¼ÆËãÃ¿¸ö»Ò¶È¼¶¶ÔÓ¦µÄÖù×Ó¿í¶È
+	// è®¡ç®—æ¯ä¸ªç°åº¦çº§å¯¹åº”çš„æŸ±å­å®½åº¦
 	int barWidth = plotWidth / 256;
 	if (barWidth < 1) barWidth = 1;
 
-	// »­Ö±·½Í¼£¨Ê¹ÓÃÀ¶É«£©
+	// ç”»ç›´æ–¹å›¾ï¼ˆä½¿ç”¨è“è‰²ï¼‰
 	CPen penHist(PS_SOLID, barWidth, RGB(0, 0, 255));
 	dc.SelectObject(&penHist);
 	for (int i = 0; i < 256; i++)
@@ -109,25 +109,25 @@ void CHistogramDlg::OnPaint()
 		dc.LineTo(x, plotBottom - barHeight);
 	}
 
-	// Ìí¼ÓºáÖá¿Ì¶È±êÇ©£¨»Ò¶ÈÖµ£©
+	// æ·»åŠ æ¨ªè½´åˆ»åº¦æ ‡ç­¾ï¼ˆç°åº¦å€¼ï¼‰
 	CFont font;
-	font.CreatePointFont(80, _T("Arial"));  // Ğ¡×ÖºÅ
+	font.CreatePointFont(80, _T("Arial"));  // å°å­—å·
 	CFont* pOldFont = dc.SelectObject(&font);
 	dc.SetBkMode(TRANSPARENT);
-	for (int val = 0; val <= 255; val += 64)  // Ã¿¸ô64±êÒ»´Î
+	for (int val = 0; val <= 255; val += 64)  // æ¯éš”64æ ‡ä¸€æ¬¡
 	{
 		int x = plotLeft + (int)((double)val / 256 * plotWidth);
 		CString label;
 		label.Format(_T("%d"), val);
-		// ±êÇ©¾ÓÖĞÓÚ¿Ì¶ÈÏß
+		// æ ‡ç­¾å±…ä¸­äºåˆ»åº¦çº¿
 		dc.TextOut(x - 10, plotBottom + 5, label);
-		// »­¶Ì¿Ì¶ÈÏß
+		// ç”»çŸ­åˆ»åº¦çº¿
 		dc.MoveTo(x, plotBottom);
 		dc.LineTo(x, plotBottom + 4);
 	}
 
-	// Ìí¼Ó×İÖá¿Ì¶È±êÇ©£¨ÆµÊı£©
-	// ×İÖá×î´óÖµ m_maxCount£¬·Ö 5 µÈ·Ö
+	// æ·»åŠ çºµè½´åˆ»åº¦æ ‡ç­¾ï¼ˆé¢‘æ•°ï¼‰
+	// çºµè½´æœ€å¤§å€¼ m_maxCountï¼Œåˆ† 5 ç­‰åˆ†
 	int numTicks = 5;
 	for (int i = 0; i <= numTicks; i++)
 	{
@@ -136,17 +136,17 @@ void CHistogramDlg::OnPaint()
 		if (y < plotTop) y = plotTop;
 		CString label;
 		label.Format(_T("%d"), freq);
-		// ÓÒ¶ÔÆë±êÇ©
+		// å³å¯¹é½æ ‡ç­¾
 		dc.TextOut(plotLeft - 30, y - 6, label);
-		// ¶Ì¿Ì¶ÈÏß
+		// çŸ­åˆ»åº¦çº¿
 		dc.MoveTo(plotLeft - 4, y);
 		dc.LineTo(plotLeft, y);
 	}
 
-	// Ìí¼ÓÖá±êÌâ
-	dc.TextOut(plotLeft + plotWidth/2 - 20, plotBottom + 20, _T("»Ò¶ÈÖµ"));
-	// Ğı×ª×İÖá±êÌâ£¨¼òµ¥´¦Àí£ºÊúÅÅÎÄ±¾ĞèÒªĞı×ª£¬ÕâÀïÓÃÆÕÍ¨ÎÄ±¾´úÌæ£©
-	dc.TextOut(10, plotTop + plotHeight/2 - 10, _T("ÆµÊı"));
+	// æ·»åŠ è½´æ ‡é¢˜
+	dc.TextOut(plotLeft + plotWidth / 2 - 20, plotBottom + 20, _T("ç°åº¦å€¼"));
+	// æ—‹è½¬çºµè½´æ ‡é¢˜ï¼ˆç®€å•å¤„ç†ï¼šç«–æ’æ–‡æœ¬éœ€è¦æ—‹è½¬ï¼Œè¿™é‡Œç”¨æ™®é€šæ–‡æœ¬ä»£æ›¿ï¼‰
+	dc.TextOut(10, plotTop + plotHeight / 2 - 10, _T("é¢‘æ•°"));
 
 	dc.SelectObject(pOldFont);
 }
@@ -154,13 +154,13 @@ void CHistogramDlg::OnPaint()
 BOOL CHistogramDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
-	Invalidate();   // ´¥·¢ÖØ»æ
+	Invalidate();   // è§¦å‘é‡ç»˜
 	return TRUE;
 }
 
 void CHistogramDlg::OnDestroy()
 {
-	// Í¨Öª¸¸´°¿Ú£¨View£©°ÑÖ±·½Í¼´°¿ÚÖ¸ÕëÖÃ NULL
+	// é€šçŸ¥çˆ¶çª—å£ï¼ˆViewï¼‰æŠŠç›´æ–¹å›¾çª—å£æŒ‡é’ˆç½® NULL
 	if (GetParent())
 		::SendMessage(GetParent()->m_hWnd, WM_USER_DESTROY_HIST, 0, 0);
 	CDialogEx::OnDestroy();
