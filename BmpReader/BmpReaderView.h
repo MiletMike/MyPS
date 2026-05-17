@@ -70,6 +70,7 @@ public:
 	afx_msg void OnProcessRestoreOriginal();    // 返回原图
 	afx_msg void OnProcessLaplacian();          // 拉普拉斯边缘检测
 	afx_msg void OnProcessPowerLaw();           // 幂律变换
+	afx_msg void OnProcessHomomorphic();        // 同态滤波
 	afx_msg void OnProcessFFT();
 	afx_msg void OnProcessIFFT();
 	afx_msg void OnProcessShowSpectrum();

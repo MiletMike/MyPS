@@ -1,4 +1,4 @@
-﻿// BmpReaderView.cpp
+﻿﻿// BmpReaderView.cpp
 #include "stdafx.h"
 #ifndef SHARED_HANDLERS
 #include "BmpReader.h"
@@ -55,6 +55,7 @@ BEGIN_MESSAGE_MAP(CBmpReaderView, CView)
     ON_COMMAND(ID_PROCESS_RESTORE_ORIGINAL, &CBmpReaderView::OnProcessRestoreOriginal)
     ON_COMMAND(ID_PROCESS_LAPLACIAN, &CBmpReaderView::OnProcessLaplacian)
     ON_COMMAND(ID_PROCESS_POWER_LAW, &CBmpReaderView::OnProcessPowerLaw)
+    ON_COMMAND(ID_PROCESS_HOMOMORPHIC, &CBmpReaderView::OnProcessHomomorphic)
     ON_COMMAND(ID_PROCESS_FFT, &CBmpReaderView::OnProcessFFT)
     ON_COMMAND(ID_PROCESS_IFFT, &CBmpReaderView::OnProcessIFFT)
     ON_COMMAND(ID_PROCESS_SHOW_SPECTRUM, &CBmpReaderView::OnProcessShowSpectrum)
@@ -97,15 +98,12 @@ void CBmpReaderView::OnDraw(CDC* pDC)
     ASSERT_VALID(pDoc);
     if (!pDoc) return;
 
-    // ==== 修改：添加频谱显示支持 ====
     if (m_bShowSpectrum && pDoc->pImage && pDoc->pImage->IsFFTValid())
     {
-        // 显示频谱图
         pDoc->pImage->ShowSpectrum(pDC);
     }
     else if (pDoc->pImage && pDoc->pImage->m_pRGB24)
     {
-        // 显示原始图像（支持缩放）
         int nWidth = pDoc->pImage->m_nWidth;
         int nHeight = pDoc->pImage->m_nHeight;
         int drawWidth = (int)(nWidth * m_zoomFactor);
@@ -114,7 +112,7 @@ void CBmpReaderView::OnDraw(CDC* pDC)
         BITMAPINFO bmi = { 0 };
         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
         bmi.bmiHeader.biWidth = nWidth;
-        bmi.bmiHeader.biHeight = -nHeight;  // 负值表示从上到下
+        bmi.bmiHeader.biHeight = -nHeight;
         bmi.bmiHeader.biPlanes = 1;
         bmi.bmiHeader.biBitCount = 24;
         bmi.bmiHeader.biCompression = BI_RGB;
@@ -126,12 +124,10 @@ void CBmpReaderView::OnDraw(CDC* pDC)
     }
     else if (pDoc->pImage && pDoc->pImage->m_hDib)
     {
-        // 如果只有DIB数据，使用原有方式显示
         pDoc->pImage->ShowBMP(pDC);
     }
     else
     {
-        // 如果没有图像数据，绘制一个简单的背景
         CRect rect;
         GetClientRect(&rect);
         pDC->FillSolidRect(&rect, RGB(240, 240, 240));
@@ -645,7 +641,6 @@ void CBmpReaderView::OnProcessSobel()
         return;
     }
 
-    // 输入核大小
     CKernelSizeDlg dlgKernel(
         _T("Please enter Sobel kernel size (odd number 3-7):\n")
         _T("(3x3: standard, 5x5/7x7: larger edges)"),
@@ -654,7 +649,6 @@ void CBmpReaderView::OnProcessSobel()
 
     if (dlgKernel.DoModal() != IDOK) return;
 
-    // 输入阈值
     CKernelSizeDlg dlgThreshold(
         _T("Please enter edge detection threshold (0-200):\n")
         _T("(0 = auto threshold, lower = more edges)"),
@@ -785,13 +779,11 @@ void CBmpReaderView::OnProcessLaplacian()
         return;
     }
 
-    // 第一个对话框：选择算子类型（使用消息框，简单直接）
     int kernelResult = AfxMessageBox(_T("选择拉普拉斯算子类型：\n是 - 8邻域(3x3，边缘更强)\n否 - 4邻域(1x1，边缘较细)"),
         MB_YESNOCANCEL);
     if (kernelResult == IDCANCEL) return;
     int kernelSize = (kernelResult == IDYES) ? 3 : 1;
 
-    // 第二个对话框：输入阈值 - 直接创建新的对话框实例，传入当前步骤的提示文字
     CKernelSizeDlg dlgThreshold(
         _T("【拉普拉斯边缘检测 - 阈值设置】\n\n")
         _T("阈值范围: 0-100\n")
@@ -846,6 +838,61 @@ void CBmpReaderView::OnProcessPowerLaw()
         msg.Format(_T("Power law transform completed!\nGamma = %.2f"), gamma);
         AfxMessageBox(msg);
     }
+}
+
+// 同态滤波
+void CBmpReaderView::OnProcessHomomorphic()
+{
+    CBmpReaderDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->m_pRGB24)
+    {
+        AfxMessageBox(_T("请先打开图像"));
+        return;
+    }
+
+    // 参数输入对话框
+    CKernelSizeDlg dlgGammaH(
+        _T("请输入高频增益 gammaH (1.0-3.0):\n")
+        _T("值越大，细节增强越明显\n")
+        _T("推荐值: 2.0"),
+        200, 100, 300);
+
+    if (dlgGammaH.DoModal() != IDOK) return;
+    float gammaH = dlgGammaH.m_nValue / 100.0f;
+
+    CKernelSizeDlg dlgGammaL(
+        _T("请输入低频增益 gammaL (0.2-0.8):\n")
+        _T("值越小，光照抑制越强\n")
+        _T("推荐值: 0.5"),
+        50, 20, 80);
+
+    if (dlgGammaL.DoModal() != IDOK) return;
+    float gammaL = dlgGammaL.m_nValue / 100.0f;
+
+    CKernelSizeDlg dlgC(
+        _T("请输入锐化系数 c (0.5-2.0):\n")
+        _T("值越大，边缘增强越明显\n")
+        _T("推荐值: 1.0"),
+        100, 50, 200);
+
+    if (dlgC.DoModal() != IDOK) return;
+    float c = dlgC.m_nValue / 100.0f;
+
+    CKernelSizeDlg dlgD0(
+        _T("请输入截止频率 D0 (20-100):\n")
+        _T("值越大，保留更多高频信息\n")
+        _T("推荐值: 30"),
+        30, 20, 100);
+
+    if (dlgD0.DoModal() != IDOK) return;
+    float D0 = (float)dlgD0.m_nValue;
+
+    // 执行同态滤波
+    pDoc->pImage->HomomorphicFilter(gammaH, gammaL, c, D0);
+
+    // 刷新显示
+    Invalidate();
+    UpdateHistogramWindow();
 }
 
 // ============================================================================
