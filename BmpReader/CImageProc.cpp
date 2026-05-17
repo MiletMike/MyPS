@@ -27,6 +27,11 @@ CImageProc::CImageProc()
     m_pOriginalRGB24 = nullptr;
     m_nOriginalWidth = 0;
     m_nOriginalHeight = 0;
+    m_pFFTData = nullptr;
+    m_bFFTValid = false;
+    m_bInFrequencyDomain = false;
+    m_nFFTWidth = 0;
+    m_nFFTHeight = 0;
 }
 
 CImageProc::~CImageProc()
@@ -39,6 +44,8 @@ CImageProc::~CImageProc()
     delete pBits;
     if (m_hDib != NULL) GlobalUnlock(m_hDib);
     if (m_pOriginalRGB24) { delete[] m_pOriginalRGB24; m_pOriginalRGB24 = nullptr; }
+    if (m_pFFTData) {    delete[] m_pFFTData;    m_pFFTData = nullptr; }
+
 }
 
 void CImageProc::CleanUp()
@@ -48,6 +55,11 @@ void CImageProc::CleanUp()
     if (m_hDib) { ::GlobalFree(m_hDib); m_hDib = NULL; }
     if (m_pRGB24) { delete[] m_pRGB24; m_pRGB24 = nullptr; }
     if (m_pOriginalRGB24) { delete[] m_pOriginalRGB24; m_pOriginalRGB24 = nullptr; }
+    if (m_pFFTData){ delete[] m_pFFTData; m_pFFTData = nullptr;}
+    m_bFFTValid = false;
+    m_bInFrequencyDomain = false;
+    m_nFFTWidth = 0;
+    m_nFFTHeight = 0;
 }
 
 void CImageProc::OpenFile()
@@ -1373,4 +1385,254 @@ void CImageProc::PowerLawTransform(double gamma)
             pRow[x * 3] = pRow[x * 3 + 1] = pRow[x * 3 + 2] = newVal;
         }
     }
+}
+
+// ============================================================================
+// FFT/IFFT 实现
+// ============================================================================
+
+// 计算最接近的2的幂
+int NextPowerOfTwo(int n)
+{
+    int power = 1;
+    while (power < n)
+        power <<= 1;
+    return power;
+}
+
+// 一维FFT（Cooley-Tukey算法）
+void CImageProc::FFT(std::complex<double>* data, int n, bool inverse)
+{
+    if (n <= 1) return;
+
+    // 分离偶数和奇数项
+    std::vector<std::complex<double>> even(n / 2), odd(n / 2);
+    for (int i = 0; i < n / 2; i++)
+    {
+        even[i] = data[i * 2];
+        odd[i] = data[i * 2 + 1];
+    }
+
+    // 递归计算
+    FFT(even.data(), n / 2, inverse);
+    FFT(odd.data(), n / 2, inverse);
+
+    // 合并结果
+    double angle = 2 * 3.14159265358979323846 * (inverse ? 1 : -1) / n;
+    std::complex<double> w(1), wn(cos(angle), sin(angle));
+
+    for (int i = 0; i < n / 2; i++)
+    {
+        data[i] = even[i] + w * odd[i];
+        data[i + n / 2] = even[i] - w * odd[i];
+        if (inverse)
+        {
+            data[i] /= 2.0;
+            data[i + n / 2] /= 2.0;
+        }
+        w *= wn;
+    }
+}
+
+// 二维FFT/IFFT
+void CImageProc::FFT2D(BYTE* spatialData, std::complex<double>* freqData, int width, int height, bool inverse)
+{
+    int fftWidth = NextPowerOfTwo(width);
+    int fftHeight = NextPowerOfTwo(height);
+
+    // 临时数组
+    std::vector<std::complex<double>> temp(fftWidth * fftHeight);
+
+    // 1. 对每一行做FFT
+    for (int y = 0; y < height; y++)
+    {
+        // 复制数据并补零
+        for (int x = 0; x < width; x++)
+        {
+            int srcIdx = y * width + x;
+            int dstIdx = y * fftWidth + x;
+            BYTE gray = spatialData[srcIdx * 3];  // 取R通道（灰度图）
+            temp[dstIdx] = std::complex<double>(gray, 0);
+        }
+        for (int x = width; x < fftWidth; x++)
+        {
+            temp[y * fftWidth + x] = std::complex<double>(0, 0);
+        }
+
+        // 对当前行做FFT
+        FFT(&temp[y * fftWidth], fftWidth, inverse);
+    }
+
+    // 2. 对每一列做FFT
+    std::vector<std::complex<double>> column(fftHeight);
+    for (int x = 0; x < fftWidth; x++)
+    {
+        // 提取列数据
+        for (int y = 0; y < fftHeight; y++)
+        {
+            column[y] = temp[y * fftWidth + x];
+        }
+
+        // 对当前列做FFT
+        FFT(column.data(), fftHeight, inverse);
+
+        // 存回
+        for (int y = 0; y < fftHeight; y++)
+        {
+            temp[y * fftWidth + x] = column[y];
+        }
+    }
+
+    // 3. 复制到输出数组
+    if (freqData)
+    {
+        for (int i = 0; i < fftWidth * fftHeight; i++)
+        {
+            freqData[i] = temp[i];
+        }
+    }
+}
+
+// 频谱中心化（将低频移到中心）
+void CImageProc::CenterSpectrum(std::complex<double>* data, int width, int height)
+{
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
+            // 乘以(-1)^(x+y)实现中心化
+            if (((x + y) & 1) == 1)
+            {
+                data[y * width + x] *= -1;
+            }
+        }
+    }
+}
+
+// 对数缩放（增强频谱可视效果）
+void CImageProc::LogScaleSpectrum(double* magnitude, int size)
+{
+    for (int i = 0; i < size; i++)
+    {
+        if (magnitude[i] > 0)
+        {
+            magnitude[i] = log(1 + magnitude[i]);
+        }
+    }
+}
+
+// 计算二维FFT
+bool CImageProc::ComputeFFT2D()
+{
+    if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0)
+        return false;
+
+    // 转换为灰度图
+    ConvertToGray();
+
+    // 计算FFT尺寸（2的幂）
+    m_nFFTWidth = NextPowerOfTwo(m_nWidth);
+    m_nFFTHeight = NextPowerOfTwo(m_nHeight);
+
+    // 分配频域数据内存
+    if (m_pFFTData)
+        delete[] m_pFFTData;
+
+    m_pFFTData = new std::complex<double>[m_nFFTWidth * m_nFFTHeight];
+    if (!m_pFFTData)
+        return false;
+
+    // 计算FFT
+    FFT2D(m_pRGB24, m_pFFTData, m_nWidth, m_nHeight, false);
+
+    // 频谱中心化
+    CenterSpectrum(m_pFFTData, m_nFFTWidth, m_nFFTHeight);
+
+    m_bFFTValid = true;
+    return true;
+}
+
+// 计算二维IFFT
+bool CImageProc::ComputeIFFT2D()
+{
+    if (!m_bFFTValid || !m_pFFTData)
+        return false;
+
+    // 反中心化
+    CenterSpectrum(m_pFFTData, m_nFFTWidth, m_nFFTHeight);
+
+    // 计算IFFT
+    FFT2D(m_pRGB24, m_pFFTData, m_nWidth, m_nHeight, true);
+
+    // 重新中心化（为下次显示频谱做准备）
+    CenterSpectrum(m_pFFTData, m_nFFTWidth, m_nFFTHeight);
+
+    return true;
+}
+
+// 显示频谱图
+void CImageProc::ShowSpectrum(CDC* pDC)
+{
+    if (!m_bFFTValid || !m_pFFTData || !pDC)
+        return;
+
+    // 计算幅度谱
+    std::vector<double> magnitude(m_nFFTWidth * m_nFFTHeight);
+    double maxMag = 0;
+
+    for (int i = 0; i < m_nFFTWidth * m_nFFTHeight; i++)
+    {
+        magnitude[i] = std::abs(m_pFFTData[i]);
+        if (magnitude[i] > maxMag)
+            maxMag = magnitude[i];
+    }
+
+    // 对数缩放
+    LogScaleSpectrum(magnitude.data(), m_nFFTWidth * m_nFFTHeight);
+
+    // 重新计算最大值
+    maxMag = 0;
+    for (int i = 0; i < m_nFFTWidth * m_nFFTHeight; i++)
+    {
+        if (magnitude[i] > maxMag)
+            maxMag = magnitude[i];
+    }
+
+    if (maxMag == 0) return;
+
+    // 创建临时位图
+    int bytesPerLine = ((m_nFFTWidth * 24 + 31) / 32) * 4;
+    BYTE* pSpectrumData = new BYTE[bytesPerLine * m_nFFTHeight];
+    memset(pSpectrumData, 0, bytesPerLine * m_nFFTHeight);
+
+    // 归一化到0-255并生成灰度图像
+    for (int y = 0; y < m_nFFTHeight; y++)
+    {
+        BYTE* pRow = pSpectrumData + y * bytesPerLine;
+        for (int x = 0; x < m_nFFTWidth; x++)
+        {
+            double normalized = magnitude[y * m_nFFTWidth + x] / maxMag;
+            BYTE gray = (BYTE)(normalized * 255);
+
+            pRow[x * 3] = gray;      // B
+            pRow[x * 3 + 1] = gray;  // G
+            pRow[x * 3 + 2] = gray;  // R
+        }
+    }
+
+    // 显示
+    BITMAPINFO bmi = { 0 };
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = m_nFFTWidth;
+    bmi.bmiHeader.biHeight = -m_nFFTHeight;  // 负值表示从上到下
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 24;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    ::SetStretchBltMode(pDC->m_hDC, COLORONCOLOR);
+    ::StretchDIBits(pDC->m_hDC, 0, 0, m_nFFTWidth, m_nFFTHeight,
+        0, 0, m_nFFTWidth, m_nFFTHeight,
+        pSpectrumData, &bmi, DIB_RGB_COLORS, SRCCOPY);
+
+    delete[] pSpectrumData;
 }

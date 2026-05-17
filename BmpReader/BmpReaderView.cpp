@@ -55,6 +55,9 @@ BEGIN_MESSAGE_MAP(CBmpReaderView, CView)
     ON_COMMAND(ID_PROCESS_RESTORE_ORIGINAL, &CBmpReaderView::OnProcessRestoreOriginal)
     ON_COMMAND(ID_PROCESS_LAPLACIAN, &CBmpReaderView::OnProcessLaplacian)
     ON_COMMAND(ID_PROCESS_POWER_LAW, &CBmpReaderView::OnProcessPowerLaw)
+    ON_COMMAND(ID_PROCESS_FFT, &CBmpReaderView::OnProcessFFT)
+    ON_COMMAND(ID_PROCESS_IFFT, &CBmpReaderView::OnProcessIFFT)
+    ON_COMMAND(ID_PROCESS_SHOW_SPECTRUM, &CBmpReaderView::OnProcessShowSpectrum)
 END_MESSAGE_MAP()
 
 CBmpReaderView::CBmpReaderView()
@@ -64,6 +67,7 @@ CBmpReaderView::CBmpReaderView()
     m_zoomFactor = 1.0;
     m_pHistogramDlg = NULL;
     m_pAdaptiveHistoDlg = NULL;
+    m_bShowSpectrum = FALSE;
 }
 
 CBmpReaderView::~CBmpReaderView()
@@ -91,8 +95,15 @@ void CBmpReaderView::OnDraw(CDC* pDC)
     ASSERT_VALID(pDoc);
     if (!pDoc) return;
 
-    if (pDoc->pImage && pDoc->pImage->m_pRGB24)
+    // ==== 修改：添加频谱显示支持 ====
+    if (m_bShowSpectrum && pDoc->pImage && pDoc->pImage->IsFFTValid())
     {
+        // 显示频谱图
+        pDoc->pImage->ShowSpectrum(pDC);
+    }
+    else if (pDoc->pImage && pDoc->pImage->m_pRGB24)
+    {
+        // 显示原始图像（支持缩放）
         int nWidth = pDoc->pImage->m_nWidth;
         int nHeight = pDoc->pImage->m_nHeight;
         int drawWidth = (int)(nWidth * m_zoomFactor);
@@ -101,7 +112,7 @@ void CBmpReaderView::OnDraw(CDC* pDC)
         BITMAPINFO bmi = { 0 };
         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
         bmi.bmiHeader.biWidth = nWidth;
-        bmi.bmiHeader.biHeight = -nHeight;
+        bmi.bmiHeader.biHeight = -nHeight;  // 负值表示从上到下
         bmi.bmiHeader.biPlanes = 1;
         bmi.bmiHeader.biBitCount = 24;
         bmi.bmiHeader.biCompression = BI_RGB;
@@ -113,7 +124,20 @@ void CBmpReaderView::OnDraw(CDC* pDC)
     }
     else if (pDoc->pImage && pDoc->pImage->m_hDib)
     {
+        // 如果只有DIB数据，使用原有方式显示
         pDoc->pImage->ShowBMP(pDC);
+    }
+    else
+    {
+        // 如果没有图像数据，绘制一个简单的背景
+        CRect rect;
+        GetClientRect(&rect);
+        pDC->FillSolidRect(&rect, RGB(240, 240, 240));
+
+        CString msg = _T("请打开图像文件");
+        pDC->SetTextColor(RGB(100, 100, 100));
+        pDC->SetBkMode(TRANSPARENT);
+        pDC->DrawText(msg, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
 }
 
@@ -820,4 +844,63 @@ void CBmpReaderView::OnProcessPowerLaw()
         msg.Format(_T("Power law transform completed!\nGamma = %.2f"), gamma);
         AfxMessageBox(msg);
     }
+}
+
+// ============================================================================
+// FFT/IFFT 消息处理函数
+// ============================================================================
+
+void CBmpReaderView::OnProcessFFT()
+{
+    CBmpReaderDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage)
+    {
+        AfxMessageBox(_T("请先打开图像"));
+        return;
+    }
+
+    if (pDoc->pImage->ComputeFFT2D())
+    {
+        m_bShowSpectrum = TRUE;
+        Invalidate();
+        AfxMessageBox(_T("傅里叶变换完成！"));
+    }
+    else
+    {
+        AfxMessageBox(_T("傅里叶变换失败"));
+    }
+}
+
+void CBmpReaderView::OnProcessIFFT()
+{
+    CBmpReaderDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage)
+    {
+        AfxMessageBox(_T("请先打开图像"));
+        return;
+    }
+
+    if (pDoc->pImage->ComputeIFFT2D())
+    {
+        m_bShowSpectrum = FALSE;
+        Invalidate();
+        AfxMessageBox(_T("反傅里叶变换完成！"));
+    }
+    else
+    {
+        AfxMessageBox(_T("反傅里叶变换失败，请先进行傅里叶变换"));
+    }
+}
+
+void CBmpReaderView::OnProcessShowSpectrum()
+{
+    m_bShowSpectrum = !m_bShowSpectrum;
+    Invalidate();
+
+    CString msg;
+    if (m_bShowSpectrum)
+        msg = _T("显示频谱图");
+    else
+        msg = _T("显示原始图像");
+    AfxMessageBox(msg);
 }

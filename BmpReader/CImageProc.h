@@ -1,6 +1,9 @@
 // CImageProc.h
 #pragma once
 #include <afxwin.h>
+#include <complex>      // 复数支持
+#include <vector>       // 向量容器
+#include <cmath>        // 数学函数
 #include "HistogramDlg.h"
 
 class CImageProc
@@ -72,6 +75,32 @@ public:
 	};
 
 	void ApplyPseudoColor(int scheme = SCHEME_DEFAULT);
+
+	// ==== 新增：FFT相关成员和函数 ====
+public:
+	// FFT/IFFT相关函数
+	bool ComputeFFT2D();                    // 计算二维FFT
+	bool ComputeIFFT2D();                   // 计算二维IFFT
+	void ShowSpectrum(CDC* pDC);            // 显示频谱图
+	bool IsFFTValid() const { return m_bFFTValid; }  // 检查FFT是否已计算
+	void SwitchToFrequencyDomain();         // 切换到频域显示
+	void SwitchToSpatialDomain();           // 切换回空域显示
+
+private:
+	// FFT核心函数
+	void FFT(std::complex<double>* data, int n, bool inverse);
+	void FFT2D(BYTE* spatialData, std::complex<double>* freqData, int width, int height, bool inverse);
+
+	// 辅助函数
+	void CenterSpectrum(std::complex<double>* data, int width, int height);
+	void LogScaleSpectrum(double* magnitude, int size);
+
+	// FFT相关数据
+	std::complex<double>* m_pFFTData;       // 频域数据（复数）
+	bool m_bFFTValid;                       // FFT是否已计算
+	bool m_bInFrequencyDomain;              // 当前是否显示频域
+	int m_nFFTWidth;                        // FFT宽度（2的幂）
+	int m_nFFTHeight;                       // FFT高度（2的幂）
 private:
 	void CleanUp();
 	DWORD m_rMask, m_gMask, m_bMask;

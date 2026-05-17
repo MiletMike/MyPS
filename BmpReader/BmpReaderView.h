@@ -70,6 +70,10 @@ public:
 	afx_msg void OnProcessRestoreOriginal();    // 返回原图
 	afx_msg void OnProcessLaplacian();          // 拉普拉斯边缘检测
 	afx_msg void OnProcessPowerLaw();           // 幂律变换
+	afx_msg void OnProcessFFT();
+	afx_msg void OnProcessIFFT();
+	afx_msg void OnProcessShowSpectrum();
+
 	afx_msg LRESULT OnDestroyHistogramDlg(WPARAM, LPARAM);
 	afx_msg LRESULT OnDestroyAdaptiveDlg(WPARAM, LPARAM);
 	void UpdateHistogramWindow();
@@ -78,6 +82,7 @@ public:
 
 private:
 	BOOL m_bShowColorDlg;
+	BOOL m_bShowSpectrum;
 	CHistogramDlg* m_pHistogramDlg;
 	CBlockSizeDlg* m_pAdaptiveHistoDlg;
 

@@ -91,6 +91,7 @@
 #define IDD_KERNELSIZE                  320
 #define IDD_DIALOG2                     328
 #define IDD_INPUT_DLG                   328
+#define IDD_DIALOG3                     330
 #define IDC_COORD_TEXT                  1000
 #define IDC_COLOR                       1001
 #define IDC_COLOR_TEXT                  1001
@@ -168,14 +169,17 @@
 #define ID_PROCESS_MULTIPLY_IMAGES      32831
 #define ID_PROCESS_RESTORE_ORIGINAL     32832
 #define ID_PROCESS_LAPLACIAN            32833
+#define ID_PROCESS_SHOW_SPECTRUM        32833
 #define ID_PROCESS_POWER_LAW            32834
+#define ID_PROCESS_FFT                  32836
+#define ID_PROCESS_IFFT                 32837
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        330
-#define _APS_NEXT_COMMAND_VALUE         32832
+#define _APS_NEXT_RESOURCE_VALUE        332
+#define _APS_NEXT_COMMAND_VALUE         32834
 #define _APS_NEXT_CONTROL_VALUE         1011
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
