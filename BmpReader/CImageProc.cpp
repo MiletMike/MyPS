@@ -8,6 +8,7 @@
 #include <ctime>
 #include <cstdlib>
 #include <vector>
+#include <float.h>
 #include "HistogramDlg.h"
 
 CImageProc::CImageProc()
@@ -44,7 +45,7 @@ CImageProc::~CImageProc()
     delete pBits;
     if (m_hDib != NULL) GlobalUnlock(m_hDib);
     if (m_pOriginalRGB24) { delete[] m_pOriginalRGB24; m_pOriginalRGB24 = nullptr; }
-    if (m_pFFTData) {    delete[] m_pFFTData;    m_pFFTData = nullptr; }
+    if (m_pFFTData) { delete[] m_pFFTData;    m_pFFTData = nullptr; }
 
 }
 
@@ -55,7 +56,7 @@ void CImageProc::CleanUp()
     if (m_hDib) { ::GlobalFree(m_hDib); m_hDib = NULL; }
     if (m_pRGB24) { delete[] m_pRGB24; m_pRGB24 = nullptr; }
     if (m_pOriginalRGB24) { delete[] m_pOriginalRGB24; m_pOriginalRGB24 = nullptr; }
-    if (m_pFFTData){ delete[] m_pFFTData; m_pFFTData = nullptr;}
+    if (m_pFFTData) { delete[] m_pFFTData; m_pFFTData = nullptr; }
     m_bFFTValid = false;
     m_bInFrequencyDomain = false;
     m_nFFTWidth = 0;
@@ -950,30 +951,22 @@ void CImageProc::AddWhiteGaussianNoise(double mean, double stddev)
     AddGaussianNoise(mean, stddev);
 }
 
-// ============================================
-// Sobel 边缘检测（支持 3x3, 5x5 等核大小）
-// 根据PPT：Sobel算子考虑中心权重，对噪声有一定抑制
-// ============================================
 void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryOutput)
 {
     if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0) return;
 
-    // 确保核大小为奇数且至少为3
     if (kernelSize < 3) kernelSize = 3;
     if (kernelSize % 2 == 0) kernelSize++;
 
-    // 限制最大核大小（避免性能问题）
     const int MAX_KERNEL = 7;
     if (kernelSize > MAX_KERNEL) kernelSize = MAX_KERNEL;
 
-    // 转换为灰度图
     ConvertToGray();
 
     int width = m_nWidth;
     int height = m_nHeight;
     int bytesPerLine = ((width * 24 + 31) / 32) * 4;
 
-    // 备份灰度数据
     BYTE* src = new BYTE[width * height];
     for (int y = 0; y < height; y++) {
         BYTE* pRow = m_pRGB24 + y * bytesPerLine;
@@ -985,35 +978,27 @@ void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryO
     int half = kernelSize / 2;
     int kernelArea = kernelSize * kernelSize;
 
-    // 动态生成 Sobel-X 和 Sobel-Y 算子
-    // 根据PPT：Sobel算子中心系数权重高，边缘系数权重低
     int* sobelX = new int[kernelArea];
     int* sobelY = new int[kernelArea];
     memset(sobelX, 0, sizeof(int) * kernelArea);
     memset(sobelY, 0, sizeof(int) * kernelArea);
 
-    // 生成 Sobel 算子（参考PPT中的3x3 [-1,0,1; -2,0,2; -1,0,1]）
-    // 对于更大尺寸，使用扩展 Sobel 算子
-    for (int i = 0; i < kernelSize; i++) {
-        for (int j = 0; j < kernelSize; j++) {
-            // 计算距离中心的偏移
-            int dx = j - half;
-            int dy = i - half;
-
-            // Sobel-X：水平方向差分，垂直方向平滑
-            if (kernelSize == 3) {
-                // 标准3x3 Sobel算子
-                sobelX[i * kernelSize + j] = (dx == -1) ? -1 : ((dx == 1) ? 1 : 0) * (dy == 0 ? 2 : 1);
-                sobelY[i * kernelSize + j] = (dy == -1) ? -1 : ((dy == 1) ? 1 : 0) * (dx == 0 ? 2 : 1);
-            }
-            else {
-                // 扩展 Sobel 算子（5x5, 7x7）
-                // 使用高斯平滑和差分组合
+    if (kernelSize == 3) {
+        sobelX[0] = -1; sobelX[1] = 0; sobelX[2] = 1;
+        sobelX[3] = -2; sobelX[4] = 0; sobelX[5] = 2;
+        sobelX[6] = -1; sobelX[7] = 0; sobelX[8] = 1;
+        sobelY[0] = -1; sobelY[1] = -2; sobelY[2] = -1;
+        sobelY[3] = 0;  sobelY[4] = 0;  sobelY[5] = 0;
+        sobelY[6] = 1;  sobelY[7] = 2;  sobelY[8] = 1;
+    }
+    else {
+        for (int i = 0; i < kernelSize; i++) {
+            for (int j = 0; j < kernelSize; j++) {
+                int dx = j - half;
+                int dy = i - half;
                 double gaussian = exp(-(dx * dx + dy * dy) / (2.0 * (half / 1.5) * (half / 1.5)));
                 if (abs(dx) <= half && abs(dy) <= half) {
-                    // Sobel-X：水平差分
                     double weightX = (dx == -half) ? -1 : ((dx == half) ? 1 : 0) * gaussian;
-                    // Sobel-Y：垂直差分
                     double weightY = (dy == -half) ? -1 : ((dy == half) ? 1 : 0) * gaussian;
                     sobelX[i * kernelSize + j] = (int)(weightX * 10);
                     sobelY[i * kernelSize + j] = (int)(weightY * 10);
@@ -1022,20 +1007,6 @@ void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryO
         }
     }
 
-    // 修正3x3 Sobel算子的具体值（确保精确匹配）
-    if (kernelSize == 3) {
-        // Sobel-X: [-1,0,1; -2,0,2; -1,0,1]
-        sobelX[0] = -1; sobelX[1] = 0; sobelX[2] = 1;
-        sobelX[3] = -2; sobelX[4] = 0; sobelX[5] = 2;
-        sobelX[6] = -1; sobelX[7] = 0; sobelX[8] = 1;
-
-        // Sobel-Y: [-1,-2,-1; 0,0,0; 1,2,1]
-        sobelY[0] = -1; sobelY[1] = -2; sobelY[2] = -1;
-        sobelY[3] = 0;  sobelY[4] = 0;  sobelY[5] = 0;
-        sobelY[6] = 1;  sobelY[7] = 2;  sobelY[8] = 1;
-    }
-
-    // 存储梯度幅值
     double* magnitude = new double[width * height];
     memset(magnitude, 0, sizeof(double) * width * height);
 
@@ -1043,11 +1014,9 @@ void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryO
     double sumMag = 0;
     int magCount = 0;
 
-    // 计算梯度
     for (int y = half; y < height - half; y++) {
         for (int x = half; x < width - half; x++) {
             double gx = 0, gy = 0;
-
             for (int ky = -half; ky <= half; ky++) {
                 for (int kx = -half; kx <= half; kx++) {
                     int pixel = src[(y + ky) * width + (x + kx)];
@@ -1056,27 +1025,21 @@ void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryO
                     gy += pixel * sobelY[kidx];
                 }
             }
-
-            // 计算梯度幅值（使用L2范数）
             double mag = sqrt(gx * gx + gy * gy);
             magnitude[y * width + x] = mag;
-
             if (mag > maxMag) maxMag = mag;
             sumMag += mag;
             if (mag > 0) magCount++;
         }
     }
 
-    // 确定阈值
     int finalThreshold = threshold;
     if (finalThreshold <= 0 && magCount > 0) {
-        // 自适应阈值：使用均值的1.5倍
         finalThreshold = (int)((sumMag / magCount) * 1.5);
         if (finalThreshold < 10) finalThreshold = 10;
         if (finalThreshold > 100) finalThreshold = 100;
     }
 
-    // 输出结果
     for (int y = 0; y < height; y++) {
         BYTE* pRow = m_pRGB24 + y * bytesPerLine;
         for (int x = 0; x < width; x++) {
@@ -1084,11 +1047,9 @@ void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryO
             if (x >= half && x < width - half && y >= half && y < height - half) {
                 double mag = magnitude[y * width + x];
                 if (bBinaryOutput) {
-                    // 二值边缘图
                     val = (mag > finalThreshold) ? 255 : 0;
                 }
                 else {
-                    // 灰度边缘图（归一化）
                     if (maxMag > 0) {
                         val = (BYTE)((mag / maxMag) * 255);
                     }
@@ -1104,7 +1065,6 @@ void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryO
         }
     }
 
-    // 释放内存
     delete[] src;
     delete[] sobelX;
     delete[] sobelY;
@@ -1265,11 +1225,9 @@ void CImageProc::LaplacianEdgeDetection(int kernelSize, int threshold)
     int height = m_nHeight;
     int bytesPerLine = ((width * 24 + 31) / 32) * 4;
 
-    // 备份原始图像数据
     BYTE* original = new BYTE[bytesPerLine * height];
     memcpy(original, m_pRGB24, bytesPerLine * height);
 
-    // 转换为灰度计算拉普拉斯边缘
     BYTE* gray = new BYTE[width * height];
     for (int y = 0; y < height; y++) {
         BYTE* pRow = m_pRGB24 + y * bytesPerLine;
@@ -1281,26 +1239,21 @@ void CImageProc::LaplacianEdgeDetection(int kernelSize, int threshold)
         }
     }
 
-    // 根据 kernelSize 选择拉普拉斯算子
     int laplacian[9];
     if (kernelSize == 1) {
-        // 4邻域版本：[0,-1,0; -1,4,-1; 0,-1,0]
         laplacian[0] = 0;  laplacian[1] = -1; laplacian[2] = 0;
         laplacian[3] = -1; laplacian[4] = 4;  laplacian[5] = -1;
         laplacian[6] = 0;  laplacian[7] = -1; laplacian[8] = 0;
     }
     else {
-        // 8邻域版本：[-1,-1,-1; -1,8,-1; -1,-1,-1]（默认）
         laplacian[0] = -1; laplacian[1] = -1; laplacian[2] = -1;
         laplacian[3] = -1; laplacian[4] = 8;  laplacian[5] = -1;
         laplacian[6] = -1; laplacian[7] = -1; laplacian[8] = -1;
     }
 
-    // 存储拉普拉斯边缘响应
     int* edge = new int[width * height];
     memset(edge, 0, sizeof(int) * width * height);
 
-    // 计算拉普拉斯响应
     for (int y = 1; y < height - 1; y++) {
         for (int x = 1; x < width - 1; x++) {
             int sum = 0;
@@ -1315,10 +1268,8 @@ void CImageProc::LaplacianEdgeDetection(int kernelSize, int threshold)
         }
     }
 
-    // 确定阈值
     int finalThreshold = threshold;
     if (finalThreshold <= 0) {
-        // 自适应阈值计算
         int sumResponse = 0;
         int responseCount = 0;
         for (int y = 1; y < height - 1; y++) {
@@ -1338,8 +1289,7 @@ void CImageProc::LaplacianEdgeDetection(int kernelSize, int threshold)
         }
     }
 
-    // 锐化增强：输出 = 原图 + c * 拉普拉斯边缘
-    double c = 0.8;  // 锐化强度系数
+    double c = 0.8;
 
     for (int y = 0; y < height; y++) {
         BYTE* pRow = m_pRGB24 + y * bytesPerLine;
@@ -1348,7 +1298,6 @@ void CImageProc::LaplacianEdgeDetection(int kernelSize, int threshold)
             int edgeValue = (y >= 1 && y < height - 1 && x >= 1 && x < width - 1)
                 ? edge[y * width + x] : 0;
 
-            // 对RGB三个通道分别进行锐化
             for (int cIdx = 0; cIdx < 3; cIdx++) {
                 int newVal = pOriginal[x * 3 + cIdx] + (int)(c * edgeValue);
                 if (newVal < 0) newVal = 0;
@@ -1358,7 +1307,6 @@ void CImageProc::LaplacianEdgeDetection(int kernelSize, int threshold)
         }
     }
 
-    // 释放内存
     delete[] original;
     delete[] gray;
     delete[] edge;
@@ -1391,8 +1339,7 @@ void CImageProc::PowerLawTransform(double gamma)
 // FFT/IFFT 实现
 // ============================================================================
 
-// 计算最接近的2的幂
-int NextPowerOfTwo(int n)
+int CImageProc::NextPowerOfTwo(int n)
 {
     int power = 1;
     while (power < n)
@@ -1400,12 +1347,10 @@ int NextPowerOfTwo(int n)
     return power;
 }
 
-// 一维FFT（Cooley-Tukey算法）
 void CImageProc::FFT(std::complex<double>* data, int n, bool inverse)
 {
     if (n <= 1) return;
 
-    // 分离偶数和奇数项
     std::vector<std::complex<double>> even(n / 2), odd(n / 2);
     for (int i = 0; i < n / 2; i++)
     {
@@ -1413,11 +1358,9 @@ void CImageProc::FFT(std::complex<double>* data, int n, bool inverse)
         odd[i] = data[i * 2 + 1];
     }
 
-    // 递归计算
     FFT(even.data(), n / 2, inverse);
     FFT(odd.data(), n / 2, inverse);
 
-    // 合并结果
     double angle = 2 * 3.14159265358979323846 * (inverse ? 1 : -1) / n;
     std::complex<double> w(1), wn(cos(angle), sin(angle));
 
@@ -1434,56 +1377,43 @@ void CImageProc::FFT(std::complex<double>* data, int n, bool inverse)
     }
 }
 
-// 二维FFT/IFFT
 void CImageProc::FFT2D(BYTE* spatialData, std::complex<double>* freqData, int width, int height, bool inverse)
 {
     int fftWidth = NextPowerOfTwo(width);
     int fftHeight = NextPowerOfTwo(height);
 
-    // 临时数组
     std::vector<std::complex<double>> temp(fftWidth * fftHeight);
 
-    // 1. 对每一行做FFT
     for (int y = 0; y < height; y++)
     {
-        // 复制数据并补零
         for (int x = 0; x < width; x++)
         {
             int srcIdx = y * width + x;
             int dstIdx = y * fftWidth + x;
-            BYTE gray = spatialData[srcIdx * 3];  // 取R通道（灰度图）
+            BYTE gray = spatialData[srcIdx * 3];
             temp[dstIdx] = std::complex<double>(gray, 0);
         }
         for (int x = width; x < fftWidth; x++)
         {
             temp[y * fftWidth + x] = std::complex<double>(0, 0);
         }
-
-        // 对当前行做FFT
         FFT(&temp[y * fftWidth], fftWidth, inverse);
     }
 
-    // 2. 对每一列做FFT
     std::vector<std::complex<double>> column(fftHeight);
     for (int x = 0; x < fftWidth; x++)
     {
-        // 提取列数据
         for (int y = 0; y < fftHeight; y++)
         {
             column[y] = temp[y * fftWidth + x];
         }
-
-        // 对当前列做FFT
         FFT(column.data(), fftHeight, inverse);
-
-        // 存回
         for (int y = 0; y < fftHeight; y++)
         {
             temp[y * fftWidth + x] = column[y];
         }
     }
 
-    // 3. 复制到输出数组
     if (freqData)
     {
         for (int i = 0; i < fftWidth * fftHeight; i++)
@@ -1493,14 +1423,12 @@ void CImageProc::FFT2D(BYTE* spatialData, std::complex<double>* freqData, int wi
     }
 }
 
-// 频谱中心化（将低频移到中心）
 void CImageProc::CenterSpectrum(std::complex<double>* data, int width, int height)
 {
     for (int y = 0; y < height; y++)
     {
         for (int x = 0; x < width; x++)
         {
-            // 乘以(-1)^(x+y)实现中心化
             if (((x + y) & 1) == 1)
             {
                 data[y * width + x] *= -1;
@@ -1509,7 +1437,6 @@ void CImageProc::CenterSpectrum(std::complex<double>* data, int width, int heigh
     }
 }
 
-// 对数缩放（增强频谱可视效果）
 void CImageProc::LogScaleSpectrum(double* magnitude, int size)
 {
     for (int i = 0; i < size; i++)
@@ -1521,20 +1448,16 @@ void CImageProc::LogScaleSpectrum(double* magnitude, int size)
     }
 }
 
-// 计算二维FFT
 bool CImageProc::ComputeFFT2D()
 {
     if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0)
         return false;
 
-    // 转换为灰度图
     ConvertToGray();
 
-    // 计算FFT尺寸（2的幂）
     m_nFFTWidth = NextPowerOfTwo(m_nWidth);
     m_nFFTHeight = NextPowerOfTwo(m_nHeight);
 
-    // 分配频域数据内存
     if (m_pFFTData)
         delete[] m_pFFTData;
 
@@ -1542,41 +1465,33 @@ bool CImageProc::ComputeFFT2D()
     if (!m_pFFTData)
         return false;
 
-    // 计算FFT
     FFT2D(m_pRGB24, m_pFFTData, m_nWidth, m_nHeight, false);
 
-    // 频谱中心化
     CenterSpectrum(m_pFFTData, m_nFFTWidth, m_nFFTHeight);
 
     m_bFFTValid = true;
     return true;
 }
 
-// 计算二维IFFT
 bool CImageProc::ComputeIFFT2D()
 {
     if (!m_bFFTValid || !m_pFFTData)
         return false;
 
-    // 反中心化
     CenterSpectrum(m_pFFTData, m_nFFTWidth, m_nFFTHeight);
 
-    // 计算IFFT
     FFT2D(m_pRGB24, m_pFFTData, m_nWidth, m_nHeight, true);
 
-    // 重新中心化（为下次显示频谱做准备）
     CenterSpectrum(m_pFFTData, m_nFFTWidth, m_nFFTHeight);
 
     return true;
 }
 
-// 显示频谱图
 void CImageProc::ShowSpectrum(CDC* pDC)
 {
     if (!m_bFFTValid || !m_pFFTData || !pDC)
         return;
 
-    // 计算幅度谱
     std::vector<double> magnitude(m_nFFTWidth * m_nFFTHeight);
     double maxMag = 0;
 
@@ -1587,10 +1502,8 @@ void CImageProc::ShowSpectrum(CDC* pDC)
             maxMag = magnitude[i];
     }
 
-    // 对数缩放
     LogScaleSpectrum(magnitude.data(), m_nFFTWidth * m_nFFTHeight);
 
-    // 重新计算最大值
     maxMag = 0;
     for (int i = 0; i < m_nFFTWidth * m_nFFTHeight; i++)
     {
@@ -1600,12 +1513,10 @@ void CImageProc::ShowSpectrum(CDC* pDC)
 
     if (maxMag == 0) return;
 
-    // 创建临时位图
     int bytesPerLine = ((m_nFFTWidth * 24 + 31) / 32) * 4;
     BYTE* pSpectrumData = new BYTE[bytesPerLine * m_nFFTHeight];
     memset(pSpectrumData, 0, bytesPerLine * m_nFFTHeight);
 
-    // 归一化到0-255并生成灰度图像
     for (int y = 0; y < m_nFFTHeight; y++)
     {
         BYTE* pRow = pSpectrumData + y * bytesPerLine;
@@ -1613,18 +1524,16 @@ void CImageProc::ShowSpectrum(CDC* pDC)
         {
             double normalized = magnitude[y * m_nFFTWidth + x] / maxMag;
             BYTE gray = (BYTE)(normalized * 255);
-
-            pRow[x * 3] = gray;      // B
-            pRow[x * 3 + 1] = gray;  // G
-            pRow[x * 3 + 2] = gray;  // R
+            pRow[x * 3] = gray;
+            pRow[x * 3 + 1] = gray;
+            pRow[x * 3 + 2] = gray;
         }
     }
 
-    // 显示
     BITMAPINFO bmi = { 0 };
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     bmi.bmiHeader.biWidth = m_nFFTWidth;
-    bmi.bmiHeader.biHeight = -m_nFFTHeight;  // 负值表示从上到下
+    bmi.bmiHeader.biHeight = -m_nFFTHeight;
     bmi.bmiHeader.biPlanes = 1;
     bmi.bmiHeader.biBitCount = 24;
     bmi.bmiHeader.biCompression = BI_RGB;
@@ -1635,4 +1544,194 @@ void CImageProc::ShowSpectrum(CDC* pDC)
         pSpectrumData, &bmi, DIB_RGB_COLORS, SRCCOPY);
 
     delete[] pSpectrumData;
+}
+
+// ============================================================================
+// 同态滤波实现
+// ============================================================================
+
+void CImageProc::HomomorphicFilter(float gammaH, float gammaL, float c, float D0)
+{
+    if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0)
+    {
+        AfxMessageBox(_T("请先打开图像"));
+        return;
+    }
+
+    // 1. 转换为灰度图
+    ConvertToGray();
+
+    int width = m_nWidth;
+    int height = m_nHeight;
+    int bytesPerLine = ((width * 24 + 31) / 32) * 4;
+
+    // 2. 创建浮点型数据并取对数
+    float** fImage = new float* [height];
+    for (int i = 0; i < height; i++)
+        fImage[i] = new float[width];
+
+    for (int y = 0; y < height; y++)
+    {
+        BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+        for (int x = 0; x < width; x++)
+        {
+            BYTE gray = pRow[x * 3];
+            fImage[y][x] = log((float)(gray + 1));
+        }
+    }
+
+    // 3. 计算FFT尺寸
+    int fftWidth = NextPowerOfTwo(width);
+    int fftHeight = NextPowerOfTwo(height);
+
+    // 4. 创建复数数组并补零
+    std::complex<double>* complexData = new std::complex<double>[fftWidth * fftHeight];
+    for (int i = 0; i < fftWidth * fftHeight; i++)
+        complexData[i] = std::complex<double>(0, 0);
+
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
+            complexData[y * fftWidth + x] = std::complex<double>(fImage[y][x], 0);
+        }
+    }
+
+    // 5. 对每一行做FFT
+    for (int y = 0; y < fftHeight; y++)
+    {
+        FFT(&complexData[y * fftWidth], fftWidth, false);
+    }
+
+    // 6. 对每一列做FFT
+    std::vector<std::complex<double>> column(fftHeight);
+    for (int x = 0; x < fftWidth; x++)
+    {
+        for (int y = 0; y < fftHeight; y++)
+        {
+            column[y] = complexData[y * fftWidth + x];
+        }
+        FFT(column.data(), fftHeight, false);
+        for (int y = 0; y < fftHeight; y++)
+        {
+            complexData[y * fftWidth + x] = column[y];
+        }
+    }
+
+    // 7. 频谱中心化
+    for (int y = 0; y < fftHeight; y++)
+    {
+        for (int x = 0; x < fftWidth; x++)
+        {
+            if (((x + y) & 1) == 1)
+            {
+                complexData[y * fftWidth + x] *= -1;
+            }
+        }
+    }
+
+    // 8. 创建同态滤波器并应用
+    int cx = fftWidth / 2;
+    int cy = fftHeight / 2;
+
+    for (int y = 0; y < fftHeight; y++)
+    {
+        for (int x = 0; x < fftWidth; x++)
+        {
+            float dx = (float)(x - cx);
+            float dy = (float)(y - cy);
+            float D = sqrt(dx * dx + dy * dy);
+
+            float D_sq = D * D;
+            float D0_sq = D0 * D0;
+            float ratio = -c * (D_sq / D0_sq);
+            float expTerm = exp(ratio);
+            float H = (gammaH - gammaL) * (1 - expTerm) + gammaL;
+
+            complexData[y * fftWidth + x] *= H;
+        }
+    }
+
+    // 9. 反中心化
+    for (int y = 0; y < fftHeight; y++)
+    {
+        for (int x = 0; x < fftWidth; x++)
+        {
+            if (((x + y) & 1) == 1)
+            {
+                complexData[y * fftWidth + x] *= -1;
+            }
+        }
+    }
+
+    // 10. 对每一列做IFFT
+    for (int x = 0; x < fftWidth; x++)
+    {
+        for (int y = 0; y < fftHeight; y++)
+        {
+            column[y] = complexData[y * fftWidth + x];
+        }
+        FFT(column.data(), fftHeight, true);
+        for (int y = 0; y < fftHeight; y++)
+        {
+            complexData[y * fftWidth + x] = column[y];
+        }
+    }
+
+    // 11. 对每一行做IFFT
+    for (int y = 0; y < fftHeight; y++)
+    {
+        FFT(&complexData[y * fftWidth], fftWidth, true);
+    }
+
+    // 12. 取实部并指数变换
+    float** result = new float* [height];
+    for (int i = 0; i < height; i++)
+        result[i] = new float[width];
+
+    float minVal = FLT_MAX, maxVal = -FLT_MAX;
+
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
+            double realVal = complexData[y * fftWidth + x].real();
+            float expVal = (float)exp(realVal) - 1;
+            result[y][x] = expVal;
+            if (expVal < minVal) minVal = expVal;
+            if (expVal > maxVal) maxVal = expVal;
+        }
+    }
+
+    // 13. 归一化并写回图像
+    float range = maxVal - minVal;
+    if (range < 0.0001f) range = 1.0f;
+
+    for (int y = 0; y < height; y++)
+    {
+        BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+        for (int x = 0; x < width; x++)
+        {
+            float normalized = (result[y][x] - minVal) / range;
+            BYTE gray = (BYTE)(normalized * 255);
+            pRow[x * 3] = gray;
+            pRow[x * 3 + 1] = gray;
+            pRow[x * 3 + 2] = gray;
+        }
+    }
+
+    // 14. 释放内存
+    delete[] complexData;
+    for (int i = 0; i < height; i++)
+    {
+        delete[] fImage[i];
+        delete[] result[i];
+    }
+    delete[] fImage;
+    delete[] result;
+
+    CString msg;
+    msg.Format(_T("同态滤波完成！\n参数：γH=%.1f, γL=%.1f, c=%.1f, D0=%.1f"),
+        gammaH, gammaL, c, D0);
+    AfxMessageBox(msg);
 }

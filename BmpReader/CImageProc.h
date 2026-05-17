@@ -4,6 +4,7 @@
 #include <complex>      // 复数支持
 #include <vector>       // 向量容器
 #include <cmath>        // 数学函数
+#include <float.h>      // FLT_MAX
 #include "HistogramDlg.h"
 
 class CImageProc
@@ -37,19 +38,31 @@ public:
 	bool RestoreOriginal();                                  // 返回原图
 	void LaplacianEdgeDetection(int kernelSize = 3, int threshold = 30);        // 拉普拉斯边缘检测
 	void PowerLawTransform(double gamma = 0.5);              // 幂律变换
-
-	// 保存原始图像数据（用于恢复）
-	void SaveOriginalData();                                 // 保存原始数据
-	// ====================================
 	void SobelEdgeDetection(int kernelSize = 3, int threshold = 80, bool bBinaryOutput = true);
 	void PrewittEdgeDetection(int kernelSize = 3, int threshold = 80);
 
-
-	// ========== 新增：噪声添加函数 ==========
+	// 噪声添加函数
 	void AddSaltPepperNoise(double saltProb = 0.05, double pepperProb = 0.05);
 	void AddImpulseNoise(double probability = 0.05);
 	void AddGaussianNoise(double mean = 0, double stddev = 25);
 	void AddWhiteGaussianNoise(double mean = 0, double stddev = 30);
+
+	// 同态滤波函数
+	void HomomorphicFilter(float gammaH = 2.0f, float gammaL = 0.5f, float c = 1.0f, float D0 = 30.0f);
+
+	// 伪彩色
+	void ApplyPseudoColor(int scheme = SCHEME_DEFAULT);
+
+	// 保存原始图像数据（用于恢复）
+	void SaveOriginalData();
+
+	// FFT/IFFT相关函数
+	bool ComputeFFT2D();                    // 计算二维FFT
+	bool ComputeIFFT2D();                   // 计算二维IFFT
+	void ShowSpectrum(CDC* pDC);            // 显示频谱图
+	bool IsFFTValid() const { return m_bFFTValid; }  // 检查FFT是否已计算
+	void SwitchToFrequencyDomain();         // 切换到频域显示
+	void SwitchToSpatialDomain();           // 切换回空域显示
 
 	// 成员变量
 	HANDLE      m_hDib;
@@ -74,21 +87,10 @@ public:
 		SCHEME_INVERT
 	};
 
-	void ApplyPseudoColor(int scheme = SCHEME_DEFAULT);
-
-	// ==== 新增：FFT相关成员和函数 ====
-public:
-	// FFT/IFFT相关函数
-	bool ComputeFFT2D();                    // 计算二维FFT
-	bool ComputeIFFT2D();                   // 计算二维IFFT
-	void ShowSpectrum(CDC* pDC);            // 显示频谱图
-	bool IsFFTValid() const { return m_bFFTValid; }  // 检查FFT是否已计算
-	void SwitchToFrequencyDomain();         // 切换到频域显示
-	void SwitchToSpatialDomain();           // 切换回空域显示
-
 private:
 	// FFT核心函数
 	void FFT(std::complex<double>* data, int n, bool inverse);
+	int NextPowerOfTwo(int n);
 	void FFT2D(BYTE* spatialData, std::complex<double>* freqData, int width, int height, bool inverse);
 
 	// 辅助函数
@@ -101,7 +103,7 @@ private:
 	bool m_bInFrequencyDomain;              // 当前是否显示频域
 	int m_nFFTWidth;                        // FFT宽度（2的幂）
 	int m_nFFTHeight;                       // FFT高度（2的幂）
-private:
+
 	void CleanUp();
 	DWORD m_rMask, m_gMask, m_bMask;
 	DWORD m_dwRedMask, m_dwGreenMask, m_dwBlueMask;
