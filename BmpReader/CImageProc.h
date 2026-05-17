@@ -84,9 +84,12 @@ public:
 	void ShowSpectrum(CDC* pDC);            // 显示频谱图
 	bool IsFFTValid() const { return m_bFFTValid; }  // 检查FFT是否已计算
 	void SwitchToFrequencyDomain();         // 切换到频域显示
-	void SwitchToSpatialDomain();           // 切换回空域显示
+	// ========== 新增：FFT/IFFT 测试函数 ==========
+	void TestFFTAndIFFT();  // 测试FFT和IFFT是否能正确恢复图像
 
-private:
+	void SwitchToSpatialDomain();           // 切换回空域显示
+	void IdealHighpassFilter(int D0);       // 理想高通滤波器，D0为截止频率半径
+	void ButterworthHighpassFilter(int D0, int n);  // 巴特沃斯高通滤波器，D0截止频率，n阶数
 	// FFT核心函数
 	void FFT(std::complex<double>* data, int n, bool inverse);
 	void FFT2D(BYTE* spatialData, std::complex<double>* freqData, int width, int height, bool inverse);

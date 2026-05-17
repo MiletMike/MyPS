@@ -58,6 +58,8 @@ BEGIN_MESSAGE_MAP(CBmpReaderView, CView)
     ON_COMMAND(ID_PROCESS_FFT, &CBmpReaderView::OnProcessFFT)
     ON_COMMAND(ID_PROCESS_IFFT, &CBmpReaderView::OnProcessIFFT)
     ON_COMMAND(ID_PROCESS_SHOW_SPECTRUM, &CBmpReaderView::OnProcessShowSpectrum)
+    ON_COMMAND(ID_PROCESS_IDEAL_HIGHPASS, &CBmpReaderView::OnProcessIdealHighpass)
+    ON_COMMAND(ID_PROCESS_BUTTERWORTH_HIGHPASS, &CBmpReaderView::OnProcessButterworthHighpass)
 END_MESSAGE_MAP()
 
 CBmpReaderView::CBmpReaderView()
@@ -859,11 +861,24 @@ void CBmpReaderView::OnProcessFFT()
         return;
     }
 
+    // 添加：先转换为灰度
+    pDoc->pImage->ConvertToGray();
+    Invalidate();
+    UpdateWindow();
+
     if (pDoc->pImage->ComputeFFT2D())
     {
         m_bShowSpectrum = TRUE;
         Invalidate();
-        AfxMessageBox(_T("傅里叶变换完成！"));
+
+        // 添加调试信息
+        TRACE(_T("FFT完成：宽度=%d, 高度=%d, FFT宽度=%d, FFT高度=%d\n"),
+            pDoc->pImage->m_nWidth,
+            pDoc->pImage->m_nHeight,
+            pDoc->pImage->m_nFFTWidth,
+            pDoc->pImage->m_nFFTHeight);
+
+        AfxMessageBox(_T("傅里叶变换完成！现在点击「IFFT」恢复图像"));
     }
     else
     {
@@ -880,11 +895,19 @@ void CBmpReaderView::OnProcessIFFT()
         return;
     }
 
+    // 添加调试信息
+    TRACE(_T("IFFT前：FFTValid=%d, FFTData=%p\n"),
+        pDoc->pImage->IsFFTValid(), pDoc->pImage->m_pFFTData);
+
     if (pDoc->pImage->ComputeIFFT2D())
     {
         m_bShowSpectrum = FALSE;
         Invalidate();
-        AfxMessageBox(_T("反傅里叶变换完成！"));
+
+        // 添加调试信息
+        TRACE(_T("IFFT完成\n"));
+
+        AfxMessageBox(_T("反傅里叶变换完成！图像应恢复为原图（或接近原图）"));
     }
     else
     {
@@ -903,4 +926,64 @@ void CBmpReaderView::OnProcessShowSpectrum()
     else
         msg = _T("显示原始图像");
     AfxMessageBox(msg);
+}
+//
+// ============================================================================
+// 高通滤波器处理函数
+// ============================================================================
+void CBmpReaderView::OnProcessIdealHighpass()
+{
+    CBmpReaderDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage)
+    {
+        AfxMessageBox(L"Please open an image first");
+        return;
+    }
+
+    pDoc->pImage->ConvertToGray();
+
+    if (!pDoc->pImage->ComputeFFT2D())
+    {
+        AfxMessageBox(L"FFT failed");
+        return;
+    }
+
+    CKernelSizeDlg dlg(L"Cutoff frequency D0 (5-80):", 30, 5, 80);
+    if (dlg.DoModal() != IDOK) return;
+
+    pDoc->pImage->IdealHighpassFilter(dlg.m_nValue);
+
+    Invalidate();
+    UpdateHistogramWindow();
+    AfxMessageBox(L"Done");
+}
+
+void CBmpReaderView::OnProcessButterworthHighpass()
+{
+    CBmpReaderDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage)
+    {
+        AfxMessageBox(L"Please open an image first");
+        return;
+    }
+
+    pDoc->pImage->ConvertToGray();
+
+    if (!pDoc->pImage->ComputeFFT2D())
+    {
+        AfxMessageBox(L"FFT failed");
+        return;
+    }
+
+    CKernelSizeDlg dlgD0(L"Cutoff frequency D0 (10-80):", 40, 10, 80);
+    if (dlgD0.DoModal() != IDOK) return;
+
+    CKernelSizeDlg dlgN(L"Order n (1-5):", 2, 1, 5);
+    if (dlgN.DoModal() != IDOK) return;
+
+    pDoc->pImage->ButterworthHighpassFilter(dlgD0.m_nValue, dlgN.m_nValue);
+
+    Invalidate();
+    UpdateHistogramWindow();
+    AfxMessageBox(L"Done");
 }

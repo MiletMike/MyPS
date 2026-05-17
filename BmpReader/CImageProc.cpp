@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <vector>
 #include "HistogramDlg.h"
+#include <complex>
 
 CImageProc::CImageProc()
     : m_nWidth(0), m_nHeight(0), m_pRGB24(nullptr)
@@ -1635,4 +1636,74 @@ void CImageProc::ShowSpectrum(CDC* pDC)
         pSpectrumData, &bmi, DIB_RGB_COLORS, SRCCOPY);
 
     delete[] pSpectrumData;
+}
+//
+// ============================================================================
+// 高通滤波器实现
+// ============================================================================
+void CImageProc::IdealHighpassFilter(int D0)
+{
+    if (!m_bFFTValid || !m_pFFTData)
+    {
+        AfxMessageBox(L"Please do FFT first");
+        return;
+    }
+
+    int w = m_nFFTWidth;
+    int h = m_nFFTHeight;
+    int cx = w / 2;
+    int cy = h / 2;
+
+    for (int y = 0; y < h; y++)
+    {
+        for (int x = 0; x < w; x++)
+        {
+            int dx = x - cx;
+            int dy = y - cy;
+            double d = sqrt((double)(dx * dx + dy * dy));
+
+            if (d < D0)
+            {
+                m_pFFTData[y * w + x] = 0;
+            }
+        }
+    }
+
+    ComputeIFFT2D();
+    m_bFFTValid = FALSE;
+}
+
+void CImageProc::ButterworthHighpassFilter(int D0, int n)
+{
+    if (!m_bFFTValid || !m_pFFTData)
+    {
+        AfxMessageBox(L"Please do FFT first");
+        return;
+    }
+
+    int w = m_nFFTWidth;
+    int h = m_nFFTHeight;
+    int cx = w / 2;
+    int cy = h / 2;
+
+    for (int y = 0; y < h; y++)
+    {
+        for (int x = 0; x < w; x++)
+        {
+            int dx = x - cx;
+            int dy = y - cy;
+            double d = sqrt((double)(dx * dx + dy * dy));
+
+            double H;
+            if (d == 0)
+                H = 0;
+            else
+                H = 1.0 / (1.0 + pow((double)D0 / d, 2 * n));
+
+            m_pFFTData[y * w + x] *= H;
+        }
+    }
+
+    ComputeIFFT2D();
+    m_bFFTValid = FALSE;
 }

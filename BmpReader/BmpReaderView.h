@@ -74,6 +74,11 @@ public:
 	afx_msg void OnProcessIFFT();
 	afx_msg void OnProcessShowSpectrum();
 
+
+
+
+	afx_msg void OnProcessIdealHighpass();      // 理想高通滤波
+	afx_msg void OnProcessButterworthHighpass(); // 巴特沃斯高通滤波
 	afx_msg LRESULT OnDestroyHistogramDlg(WPARAM, LPARAM);
 	afx_msg LRESULT OnDestroyAdaptiveDlg(WPARAM, LPARAM);
 	void UpdateHistogramWindow();
