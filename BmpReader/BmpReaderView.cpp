@@ -55,6 +55,8 @@ BEGIN_MESSAGE_MAP(CBmpReaderView, CView)
     ON_COMMAND(ID_PROCESS_RESTORE_ORIGINAL, &CBmpReaderView::OnProcessRestoreOriginal)
     ON_COMMAND(ID_PROCESS_LAPLACIAN, &CBmpReaderView::OnProcessLaplacian)
     ON_COMMAND(ID_PROCESS_POWER_LAW, &CBmpReaderView::OnProcessPowerLaw)
+    ON_COMMAND(ID_PROCESS_INVERSE_FILTER, &CBmpReaderView::OnProcessInverseFilter)
+    ON_COMMAND(ID_PROCESS_WIENER_FILTER, &CBmpReaderView::OnProcessWienerFilter)
 END_MESSAGE_MAP()
 
 CBmpReaderView::CBmpReaderView()
@@ -820,4 +822,137 @@ void CBmpReaderView::OnProcessPowerLaw()
         msg.Format(_T("Power law transform completed!\nGamma = %.2f"), gamma);
         AfxMessageBox(msg);
     }
+}
+
+void CBmpReaderView::OnProcessInverseFilter()
+{
+    CBmpReaderDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->m_pRGB24)
+    {
+        AfxMessageBox(_T("Please open an image first"));
+        return;
+    }
+
+    // 第一步：选择退化类型
+    int blurResult = AfxMessageBox(_T("选择退化类型：\n是 - 运动模糊 (Motion Blur)\n否 - 大气湍流 (Turbulence)"),
+        MB_YESNOCANCEL);
+    if (blurResult == IDCANCEL) return;
+    int blurType = (blurResult == IDYES) ? CImageProc::BLUR_MOTION : CImageProc::BLUR_TURBULENCE;
+
+    double p1 = 0.1, p2 = 0.1, p3 = 1.0;
+    double threshold = 1.0;
+
+    if (blurType == CImageProc::BLUR_MOTION)
+    {
+        // 运动模糊参数输入：a, b, T (放大100倍为整数)
+        CKernelSizeDlg dlgA(_T("【运动模糊参数 a (×100)】\na 为水平方向运动分量\n推荐值: 10 (即 0.10)"), 10, 1, 50);
+        if (dlgA.DoModal() != IDOK) return;
+        p1 = dlgA.m_nValue / 100.0;
+
+        CKernelSizeDlg dlgB(_T("【运动模糊参数 b (×100)】\nb 为垂直方向运动分量\n推荐值: 10 (即 0.10)"), 10, 0, 50);
+        if (dlgB.DoModal() != IDOK) return;
+        p2 = dlgB.m_nValue / 100.0;
+
+        CKernelSizeDlg dlgT(_T("【运动模糊参数 T (×100)】\nT 为曝光时间\n推荐值: 100 (即 1.00)"), 100, 1, 200);
+        if (dlgT.DoModal() != IDOK) return;
+        p3 = dlgT.m_nValue / 100.0;
+    }
+    else
+    {
+        // 湍流参数 k (放大10000倍为整数)
+        CKernelSizeDlg dlgK(_T("【大气湍流参数 k (×10000)】\nk 值越小模糊越轻\n推荐值: 25 (即 0.0025) 对应 turb_0pt0025.bmp"), 25, 1, 500);
+        if (dlgK.DoModal() != IDOK) return;
+        p1 = dlgK.m_nValue / 10000.0;
+    }
+
+    // 阈值参数（Tikhonov 正则化强度）
+    CKernelSizeDlg dlgThresh(_T("【逆滤波正则化强度 (百分比)】\n"
+        "Tikhonov: F=conj(H)·G/(|H|²+λ)\n"
+        "推荐值:\n"
+        "  1% = 轻度正则化（无噪声图）\n"
+        "  3~5% = 中等（含噪声图）\n"
+        "  10% = 强正则化（高噪声）"), 1, 1, 20);
+    if (dlgThresh.DoModal() != IDOK) return;
+    threshold = (double)dlgThresh.m_nValue;
+
+    // 执行逆滤波
+    pDoc->pImage->InverseFilter(blurType, p1, p2, p3, threshold);
+    Invalidate();
+    UpdateHistogramWindow();
+
+    CString msg;
+    if (blurType == CImageProc::BLUR_MOTION)
+        msg.Format(_T("逆滤波完成！(Tikhonov)\n类型: 运动模糊\na=%.2f, b=%.2f, T=%.2f\n正则化强度: %d%%"), p1, p2, p3, (int)threshold);
+    else
+        msg.Format(_T("逆滤波完成！(Tikhonov)\n类型: 大气湍流\nk=%.4f\n正则化强度: %d%%"), p1, (int)threshold);
+    AfxMessageBox(msg);
+}
+
+void CBmpReaderView::OnProcessWienerFilter()
+{
+    CBmpReaderDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->m_pRGB24)
+    {
+        AfxMessageBox(_T("Please open an image first"));
+        return;
+    }
+
+    // 第一步：选择退化类型
+    int blurResult = AfxMessageBox(_T("选择退化类型：\n是 - 运动模糊 (Motion Blur)\n否 - 大气湍流 (Turbulence)"),
+        MB_YESNOCANCEL);
+    if (blurResult == IDCANCEL) return;
+    int blurType = (blurResult == IDYES) ? CImageProc::BLUR_MOTION : CImageProc::BLUR_TURBULENCE;
+
+    double p1 = 0.1, p2 = 0.1, p3 = 1.0;
+    double K = 0.01;
+
+    if (blurType == CImageProc::BLUR_MOTION)
+    {
+        CKernelSizeDlg dlgA(_T("【运动模糊参数 a (×100)】\na 为水平方向运动分量\n推荐值: 10 (即 0.10)"), 10, 1, 50);
+        if (dlgA.DoModal() != IDOK) return;
+        p1 = dlgA.m_nValue / 100.0;
+
+        CKernelSizeDlg dlgB(_T("【运动模糊参数 b (×100)】\nb 为垂直方向运动分量\n推荐值: 10 (即 0.10)"), 10, 0, 50);
+        if (dlgB.DoModal() != IDOK) return;
+        p2 = dlgB.m_nValue / 100.0;
+
+        CKernelSizeDlg dlgT(_T("【运动模糊参数 T (×100)】\nT 为曝光时间\n推荐值: 100 (即 1.00)"), 100, 1, 200);
+        if (dlgT.DoModal() != IDOK) return;
+        p3 = dlgT.m_nValue / 100.0;
+    }
+    else
+    {
+        CKernelSizeDlg dlgK(_T("【大气湍流参数 k (×10000)】\n推荐值: 25 (即 0.0025) 对应 turb_0pt0025.bmp"), 25, 1, 500);
+        if (dlgK.DoModal() != IDOK) return;
+        p1 = dlgK.m_nValue / 10000.0;
+    }
+
+    // 维纳滤波 K 值 (噪声/信号功率比)
+    CKernelSizeDlg dlgKVal(_T("【维纳滤波参数 K (×1000)】\n"
+        "K = 噪声功率 / 信号功率比\n"
+        "输入 0 则自动估计\n"
+        "K 越小复原越强，越大去噪越强\n"
+        "含噪声推荐 10~50 (0.010~0.050)"),
+        0, 0, 200);
+    if (dlgKVal.DoModal() != IDOK) return;
+    K = dlgKVal.m_nValue / 1000.0;
+
+    // 执行维纳滤波
+    pDoc->pImage->WienerFilter(blurType, p1, p2, p3, K);
+    Invalidate();
+    UpdateHistogramWindow();
+
+    CString msg;
+    if (blurType == CImageProc::BLUR_MOTION) {
+        if (K <= 0)
+            msg.Format(_T("维纳滤波完成！(自动 K)\n类型: 运动模糊\na=%.2f, b=%.2f, T=%.2f"), p1, p2, p3);
+        else
+            msg.Format(_T("维纳滤波完成！\n类型: 运动模糊\na=%.2f, b=%.2f, T=%.2f\nK=%.3f"), p1, p2, p3, K);
+    } else {
+        if (K <= 0)
+            msg.Format(_T("维纳滤波完成！(自动 K)\n类型: 大气湍流\nk=%.4f"), p1);
+        else
+            msg.Format(_T("维纳滤波完成！\n类型: 大气湍流\nk=%.4f\nK=%.3f"), p1, K);
+    }
+    AfxMessageBox(msg);
 }

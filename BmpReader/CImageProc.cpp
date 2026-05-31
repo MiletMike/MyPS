@@ -1374,3 +1374,375 @@ void CImageProc::PowerLawTransform(double gamma)
         }
     }
 }
+
+// ===================================================================
+//  FFT / 频域图像复原 实现
+// ===================================================================
+
+int CImageProc::NextPow2(int size)
+{
+    int n = 1;
+    while (n < size) n <<= 1;
+    return n;
+}
+
+void CImageProc::FFT1D(ComplexNumber* data, int n, bool inverse)
+{
+    // 位反转排序 (bit-reversal)
+    for (int i = 1, j = 0; i < n; i++) {
+        int bit = n >> 1;
+        for (; j & bit; bit >>= 1)
+            j ^= bit;
+        j ^= bit;
+        if (i < j) {
+            ComplexNumber tmp = data[i];
+            data[i] = data[j];
+            data[j] = tmp;
+        }
+    }
+
+    // 蝶形运算
+    static const double PI = 3.14159265358979323846;
+    for (int len = 2; len <= n; len <<= 1) {
+        double ang = 2.0 * PI / len * (inverse ? 1 : -1);
+        ComplexNumber wlen(cos(ang), sin(ang));
+        for (int i = 0; i < n; i += len) {
+            ComplexNumber w(1, 0);
+            for (int j = 0; j < len / 2; j++) {
+                ComplexNumber u = data[i + j];
+                ComplexNumber v = data[i + j + len / 2] * w;
+                data[i + j] = u + v;
+                data[i + j + len / 2] = u - v;
+                w = w * wlen;
+            }
+        }
+    }
+
+    // 逆变换时除以 n
+    if (inverse) {
+        for (int i = 0; i < n; i++) {
+            data[i].real /= n;
+            data[i].imag /= n;
+        }
+    }
+}
+
+void CImageProc::FFT2D(ComplexNumber* data, int w, int h, bool inverse)
+{
+    // 每行做 FFT
+    for (int y = 0; y < h; y++) {
+        FFT1D(data + y * w, w, inverse);
+    }
+    // 每列做 FFT
+    ComplexNumber* col = new ComplexNumber[h];
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y++) {
+            col[y] = data[y * w + x];
+        }
+        FFT1D(col, h, inverse);
+        for (int y = 0; y < h; y++) {
+            data[y * w + x] = col[y];
+        }
+    }
+    delete[] col;
+}
+
+void CImageProc::GenerateMotionPSF(ComplexNumber* H, int w, int h, double a, double b, double T)
+{
+    static const double PI = 3.14159265358979323846;
+    double cx = w / 2.0;
+    double cy = h / 2.0;
+    for (int v = 0; v < h; v++) {
+        for (int u = 0; u < w; u++) {
+            double uu = u - cx;
+            double vv = v - cy;
+            double arg = PI * (uu * a + vv * b);
+            if (fabs(arg) < 1e-8) {
+                // arg → 0 时极限为 T
+                H[v * w + u] = ComplexNumber(T, 0);
+            }
+            else {
+                double val = T * sin(arg) / arg;
+                // H = T * sin(arg)/arg * exp(-j*arg)
+                H[v * w + u] = ComplexNumber(val * cos(arg), -val * sin(arg));
+            }
+        }
+    }
+}
+
+void CImageProc::GenerateTurbulencePSF(ComplexNumber* H, int w, int h, double k)
+{
+    static const double PI = 3.14159265358979323846;
+    double cx = w / 2.0;
+    double cy = h / 2.0;
+    for (int v = 0; v < h; v++) {
+        for (int u = 0; u < w; u++) {
+            double uu = u - cx;
+            double vv = v - cy;
+            double d2 = uu * uu + vv * vv;
+            // H(u,v) = exp(-k * (u^2+v^2)^(5/6))
+            double expArg = -k * pow(d2, 5.0 / 6.0);
+            double val = exp(expArg);
+            H[v * w + u] = ComplexNumber(val, 0);
+        }
+    }
+}
+
+// Tukey 窗（余弦渐缩窗），alpha 控制渐缩比例（0=矩形窗，1=完全 Hann 窗）
+void CImageProc::TukeyWindow(double* win, int w, int h, double alpha)
+{
+    if (alpha <= 0) {
+        for (int i = 0; i < w * h; i++) win[i] = 1.0;
+        return;
+    }
+    static const double PI = 3.14159265358979323846;
+    double* wx = new double[w];
+    double* wy = new double[h];
+    int kx = (int)(alpha * w / 2);
+    int ky = (int)(alpha * h / 2);
+    if (kx < 1) kx = 1;
+    if (ky < 1) ky = 1;
+
+    for (int x = 0; x < w; x++) {
+        if (x < kx)
+            wx[x] = 0.5 * (1.0 + cos(PI * (x - kx) / kx));
+        else if (x >= w - kx)
+            wx[x] = 0.5 * (1.0 + cos(PI * (x - (w - 1 - kx)) / kx));
+        else
+            wx[x] = 1.0;
+    }
+    for (int y = 0; y < h; y++) {
+        if (y < ky)
+            wy[y] = 0.5 * (1.0 + cos(PI * (y - ky) / ky));
+        else if (y >= h - ky)
+            wy[y] = 0.5 * (1.0 + cos(PI * (y - (h - 1 - ky)) / ky));
+        else
+            wy[y] = 1.0;
+    }
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            win[y * w + x] = wx[x] * wy[y];
+        }
+    }
+    delete[] wx;
+    delete[] wy;
+}
+
+// 利用 Laplacian 高频分量鲁棒估计噪声标准差
+double CImageProc::EstimateNoiseVariance(const BYTE* gray, int w, int h)
+{
+    // 计算 Laplacian 响应（4-邻域）
+    std::vector<double> lap;
+    lap.reserve(w * h);
+    for (int y = 1; y < h - 1; y++) {
+        for (int x = 1; x < w - 1; x++) {
+            double v = 4.0 * gray[y * w + x]
+                - gray[(y - 1) * w + x] - gray[(y + 1) * w + x]
+                - gray[y * w + x - 1] - gray[y * w + x + 1];
+            lap.push_back(v);
+        }
+    }
+    // 计算 |Laplacian| 的中位数
+    size_t n = lap.size();
+    std::vector<double> absLap(n);
+    for (size_t i = 0; i < n; i++) absLap[i] = fabs(lap[i]);
+    std::nth_element(absLap.begin(), absLap.begin() + n / 2, absLap.end());
+    double medianAbs = absLap[n / 2];
+    // Laplacian 系数平方和 = 20，MAD→标准差换算因子 0.6745
+    double sigma = medianAbs / (0.6745 * sqrt(20.0));
+    return sigma * sigma;  // 噪声方差
+}
+
+void CImageProc::InverseFilter(int blurType, double p1, double p2, double p3, double thresholdPercent)
+{
+    if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0) return;
+    ConvertToGray();
+
+    int width = m_nWidth;
+    int height = m_nHeight;
+    int bytesPerLine = ((width * 24 + 31) / 32) * 4;
+
+    // 提取灰度数据并计算均值
+    BYTE* gray = new BYTE[width * height];
+    double meanVal = 0.0;
+    for (int y = 0; y < height; y++) {
+        BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+        for (int x = 0; x < width; x++) {
+            BYTE v = pRow[x * 3];
+            gray[y * width + x] = v;
+            meanVal += v;
+        }
+    }
+    meanVal /= (width * height);
+
+    // ---------- 边缘渐缩窗（Tukey），减少边界振铃 ----------
+    double* window = new double[width * height];
+    TukeyWindow(window, width, height, 0.15);  // 15% 渐缩
+    // -----------------------------------------------------
+
+    // 确定 FFT 大小（填充到 2 的幂）
+    int fftW = NextPow2(width);
+    int fftH = NextPow2(height);
+    int total = fftW * fftH;
+
+    // 加窗 + 减均值 + fftshift → 零填充
+    ComplexNumber* G = new ComplexNumber[total];
+    // 先清零（零填充区域自动为 0）
+    memset(G, 0, sizeof(ComplexNumber) * total);
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            double pixelVal = (gray[y * width + x] - meanVal) * window[y * width + x];
+            double shift = ((x + y) & 1) ? -1.0 : 1.0;
+            G[y * fftW + x] = ComplexNumber(pixelVal * shift, 0);
+        }
+    }
+    delete[] window;
+
+    // FFT
+    FFT2D(G, fftW, fftH, false);
+
+    // 生成退化函数 H(u,v)（已中心化）
+    ComplexNumber* H = new ComplexNumber[total];
+    if (blurType == BLUR_MOTION) {
+        GenerateMotionPSF(H, fftW, fftH, p1, p2, p3);
+    }
+    else {
+        GenerateTurbulencePSF(H, fftW, fftH, p1);
+    }
+
+    // 计算阈值 + 自适应 Tikhonov 正则化
+    double maxHMag = 0;
+    for (int i = 0; i < total; i++) {
+        double m = H[i].Mag();
+        if (m > maxHMag) maxHMag = m;
+    }
+    double threshold = maxHMag * (thresholdPercent / 100.0);
+    double lambda = threshold * threshold;
+
+    // 逆滤波（Tikhonov）: F = conj(H)·G / (|H|² + λ)
+    ComplexNumber* F = new ComplexNumber[total];
+    for (int i = 0; i < total; i++) {
+        double hMagSq = H[i].real * H[i].real + H[i].imag * H[i].imag;
+        ComplexNumber Hconj = H[i].Conj();
+        F[i] = G[i] * Hconj * (1.0 / (hMagSq + lambda));
+    }
+
+    // 逆 FFT
+    FFT2D(F, fftW, fftH, true);
+
+    // 写回：去中心化 + 加均值 + 裁剪
+    for (int y = 0; y < height; y++) {
+        BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+        for (int x = 0; x < width; x++) {
+            double shift = ((x + y) & 1) ? -1.0 : 1.0;
+            double v = F[y * fftW + x].real * shift + meanVal;
+            int val = (int)(v + 0.5);
+            if (val < 0) val = 0;
+            if (val > 255) val = 255;
+            pRow[x * 3] = pRow[x * 3 + 1] = pRow[x * 3 + 2] = (BYTE)val;
+        }
+    }
+
+    delete[] gray;
+    delete[] G;
+    delete[] H;
+    delete[] F;
+}
+
+void CImageProc::WienerFilter(int blurType, double p1, double p2, double p3, double K)
+{
+    if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0) return;
+    ConvertToGray();
+
+    int width = m_nWidth;
+    int height = m_nHeight;
+    int bytesPerLine = ((width * 24 + 31) / 32) * 4;
+
+    // 提取灰度数据并计算均值
+    BYTE* gray = new BYTE[width * height];
+    double meanVal = 0.0;
+    for (int y = 0; y < height; y++) {
+        BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+        for (int x = 0; x < width; x++) {
+            BYTE v = pRow[x * 3];
+            gray[y * width + x] = v;
+            meanVal += v;
+        }
+    }
+    meanVal /= (width * height);
+
+    // ---------- 自动估计噪声功率（用于自适应 K） ----------
+    double noiseVar = EstimateNoiseVariance(gray, width, height);
+    // 信号方差 = 总方差 - 噪声方差
+    double totalVar = 0;
+    for (int i = 0; i < width * height; i++) totalVar += (gray[i] - meanVal) * (gray[i] - meanVal);
+    totalVar /= (width * height);
+    double signalVar = (totalVar > noiseVar) ? (totalVar - noiseVar) : totalVar * 0.5;
+    double autoK = noiseVar / (signalVar + 1e-10);  // 自动估计 K
+    // 使用用户传入 K 与自动 K 中较大的一个（确保不会太小）
+    if (K <= 0) K = autoK;
+    else        K = max(K, autoK * 0.5);
+    // -----------------------------------------------------
+
+    // ---------- Tukey 窗 ----------
+    double* window = new double[width * height];
+    TukeyWindow(window, width, height, 0.15);
+    // ------------------------------
+
+    // 确定 FFT 大小
+    int fftW = NextPow2(width);
+    int fftH = NextPow2(height);
+    int total = fftW * fftH;
+
+    // 加窗 + 减均值 + fftshift → 零填充
+    ComplexNumber* G = new ComplexNumber[total];
+    memset(G, 0, sizeof(ComplexNumber) * total);
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            double pixelVal = (gray[y * width + x] - meanVal) * window[y * width + x];
+            double shift = ((x + y) & 1) ? -1.0 : 1.0;
+            G[y * fftW + x] = ComplexNumber(pixelVal * shift, 0);
+        }
+    }
+    delete[] window;
+
+    FFT2D(G, fftW, fftH, false);
+
+    // 生成退化函数 H(u,v)（已中心化）
+    ComplexNumber* H = new ComplexNumber[total];
+    if (blurType == BLUR_MOTION) {
+        GenerateMotionPSF(H, fftW, fftH, p1, p2, p3);
+    }
+    else {
+        GenerateTurbulencePSF(H, fftW, fftH, p1);
+    }
+
+    // 维纳滤波: F = [H* / (|H|^2 + K)] * G
+    ComplexNumber* F = new ComplexNumber[total];
+    for (int i = 0; i < total; i++) {
+        double hMagSq = H[i].real * H[i].real + H[i].imag * H[i].imag;
+        ComplexNumber Hconj = H[i].Conj();
+        F[i] = G[i] * Hconj * (1.0 / (hMagSq + K));
+    }
+
+    // 逆 FFT
+    FFT2D(F, fftW, fftH, true);
+
+    // 写回结果：去中心化 + 加均值 + 裁剪到 [0,255]
+    for (int y = 0; y < height; y++) {
+        BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+        for (int x = 0; x < width; x++) {
+            double shift = ((x + y) & 1) ? -1.0 : 1.0;
+            double v = F[y * fftW + x].real * shift + meanVal;
+            int val = (int)(v + 0.5);
+            if (val < 0) val = 0;
+            if (val > 255) val = 255;
+            pRow[x * 3] = pRow[x * 3 + 1] = pRow[x * 3 + 2] = (BYTE)val;
+        }
+    }
+
+    delete[] gray;
+    delete[] G;
+    delete[] H;
+    delete[] F;
+}

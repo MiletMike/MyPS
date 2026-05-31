@@ -37,6 +37,15 @@ public:
 
 	// 保存原始图像数据（用于恢复）
 	void SaveOriginalData();                                 // 保存原始数据
+
+	// ========== 频域图像复原 ==========
+	static const int BLUR_MOTION = 0;      // 运动模糊: p1=a, p2=b, p3=T
+	static const int BLUR_TURBULENCE = 1;  // 大气湍流: p1=k, p2=0, p3=0
+
+	// 逆滤波: thresholdPercent 为 H(u,v) 零值阈值百分比（默认1%）
+	void InverseFilter(int blurType, double p1 = 0.1, double p2 = 0.1, double p3 = 1.0, double thresholdPercent = 1.0);
+	// 维纳滤波: K 为噪声/信号功率比 (NSR)
+	void WienerFilter(int blurType, double p1 = 0.1, double p2 = 0.1, double p3 = 1.0, double K = 0.01);
 	// ====================================
 	void SobelEdgeDetection(int kernelSize = 3, int threshold = 80, bool bBinaryOutput = true);
 	void PrewittEdgeDetection(int kernelSize = 3, int threshold = 80);
@@ -73,6 +82,33 @@ public:
 
 	void ApplyPseudoColor(int scheme = SCHEME_DEFAULT);
 private:
+	// ========== 频域复原辅助结构 ==========
+	struct ComplexNumber {
+		double real, imag;
+		ComplexNumber(double r = 0, double i = 0) : real(r), imag(i) {}
+		ComplexNumber operator+(const ComplexNumber& c) const { return ComplexNumber(real + c.real, imag + c.imag); }
+		ComplexNumber operator-(const ComplexNumber& c) const { return ComplexNumber(real - c.real, imag - c.imag); }
+		ComplexNumber operator*(const ComplexNumber& c) const { return ComplexNumber(real*c.real - imag*c.imag, real*c.imag + imag*c.real); }
+		ComplexNumber operator*(double d) const { return ComplexNumber(real*d, imag*d); }
+		double Mag() const { return sqrt(real*real + imag*imag); }
+		ComplexNumber Conj() const { return ComplexNumber(real, -imag); }
+	};
+
+	// 1D FFT (n 必须为 2 的幂)
+	void FFT1D(ComplexNumber* data, int n, bool inverse);
+	// 不小于 size 的最小 2 的幂
+	int NextPow2(int size);
+	// 2D FFT
+	void FFT2D(ComplexNumber* data, int w, int h, bool inverse);
+	// 生成运动模糊退化函数 H(u,v)
+	void GenerateMotionPSF(ComplexNumber* H, int w, int h, double a, double b, double T);
+	// 生成大气湍流失真退化函数 H(u,v)
+	void GenerateTurbulencePSF(ComplexNumber* H, int w, int h, double k);
+	// Tukey 窗（边缘渐缓到零，减少边界振铃）
+	static void TukeyWindow(double* win, int w, int h, double alpha);
+	// 从图像高频分量估计噪声方差
+	double EstimateNoiseVariance(const BYTE* gray, int w, int h);
+
 	void CleanUp();
 	DWORD m_rMask, m_gMask, m_bMask;
 	DWORD m_dwRedMask, m_dwGreenMask, m_dwBlueMask;
