@@ -1,4 +1,4 @@
-﻿// BmpReaderView.cpp
+﻿﻿// BmpReaderView.cpp
 #include "stdafx.h"
 #ifndef SHARED_HANDLERS
 #include "BmpReader.h"
@@ -66,6 +66,7 @@ CBmpReaderView::CBmpReaderView()
     m_zoomFactor = 1.0;
     m_pHistogramDlg = NULL;
     m_pAdaptiveHistoDlg = NULL;
+    m_bShowSpectrum = FALSE;
 }
 
 CBmpReaderView::~CBmpReaderView()
@@ -93,7 +94,11 @@ void CBmpReaderView::OnDraw(CDC* pDC)
     ASSERT_VALID(pDoc);
     if (!pDoc) return;
 
-    if (pDoc->pImage && pDoc->pImage->m_pRGB24)
+    if (m_bShowSpectrum && pDoc->pImage && pDoc->pImage->IsFFTValid())
+    {
+        pDoc->pImage->ShowSpectrum(pDC);
+    }
+    else if (pDoc->pImage && pDoc->pImage->m_pRGB24)
     {
         int nWidth = pDoc->pImage->m_nWidth;
         int nHeight = pDoc->pImage->m_nHeight;
@@ -116,6 +121,17 @@ void CBmpReaderView::OnDraw(CDC* pDC)
     else if (pDoc->pImage && pDoc->pImage->m_hDib)
     {
         pDoc->pImage->ShowBMP(pDC);
+    }
+    else
+    {
+        CRect rect;
+        GetClientRect(&rect);
+        pDC->FillSolidRect(&rect, RGB(240, 240, 240));
+
+        CString msg = _T("请打开图像文件");
+        pDC->SetTextColor(RGB(100, 100, 100));
+        pDC->SetBkMode(TRANSPARENT);
+        pDC->DrawText(msg, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
 }
 
@@ -621,7 +637,6 @@ void CBmpReaderView::OnProcessSobel()
         return;
     }
 
-    // 输入核大小
     CKernelSizeDlg dlgKernel(
         _T("Please enter Sobel kernel size (odd number 3-7):\n")
         _T("(3x3: standard, 5x5/7x7: larger edges)"),
@@ -630,7 +645,6 @@ void CBmpReaderView::OnProcessSobel()
 
     if (dlgKernel.DoModal() != IDOK) return;
 
-    // 输入阈值
     CKernelSizeDlg dlgThreshold(
         _T("Please enter edge detection threshold (0-200):\n")
         _T("(0 = auto threshold, lower = more edges)"),
@@ -761,13 +775,11 @@ void CBmpReaderView::OnProcessLaplacian()
         return;
     }
 
-    // 第一个对话框：选择算子类型（使用消息框，简单直接）
     int kernelResult = AfxMessageBox(_T("选择拉普拉斯算子类型：\n是 - 8邻域(3x3，边缘更强)\n否 - 4邻域(1x1，边缘较细)"),
         MB_YESNOCANCEL);
     if (kernelResult == IDCANCEL) return;
     int kernelSize = (kernelResult == IDYES) ? 3 : 1;
 
-    // 第二个对话框：输入阈值 - 直接创建新的对话框实例，传入当前步骤的提示文字
     CKernelSizeDlg dlgThreshold(
         _T("【拉普拉斯边缘检测 - 阈值设置】\n\n")
         _T("阈值范围: 0-100\n")

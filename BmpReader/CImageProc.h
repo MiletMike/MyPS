@@ -1,6 +1,10 @@
 // CImageProc.h
 #pragma once
 #include <afxwin.h>
+#include <complex>      // 复数支持
+#include <vector>       // 向量容器
+#include <cmath>        // 数学函数
+#include <float.h>      // FLT_MAX
 #include "HistogramDlg.h"
 
 class CImageProc
@@ -50,12 +54,28 @@ public:
 	void SobelEdgeDetection(int kernelSize = 3, int threshold = 80, bool bBinaryOutput = true);
 	void PrewittEdgeDetection(int kernelSize = 3, int threshold = 80);
 
-
-	// ========== 新增：噪声添加函数 ==========
+	// 噪声添加函数
 	void AddSaltPepperNoise(double saltProb = 0.05, double pepperProb = 0.05);
 	void AddImpulseNoise(double probability = 0.05);
 	void AddGaussianNoise(double mean = 0, double stddev = 25);
 	void AddWhiteGaussianNoise(double mean = 0, double stddev = 30);
+
+	// 同态滤波函数
+	void HomomorphicFilter(float gammaH = 2.0f, float gammaL = 0.5f, float c = 1.0f, float D0 = 30.0f);
+
+	// 伪彩色
+	void ApplyPseudoColor(int scheme = SCHEME_DEFAULT);
+
+	// 保存原始图像数据（用于恢复）
+	void SaveOriginalData();
+
+	// FFT/IFFT相关函数
+	bool ComputeFFT2D();                    // 计算二维FFT
+	bool ComputeIFFT2D();                   // 计算二维IFFT
+	void ShowSpectrum(CDC* pDC);            // 显示频谱图
+	bool IsFFTValid() const { return m_bFFTValid; }  // 检查FFT是否已计算
+	void SwitchToFrequencyDomain();         // 切换到频域显示
+	void SwitchToSpatialDomain();           // 切换回空域显示
 
 	// 成员变量
 	HANDLE      m_hDib;
@@ -81,6 +101,17 @@ public:
 	};
 
 	void ApplyPseudoColor(int scheme = SCHEME_DEFAULT);
+
+	// ==== 新增：FFT相关成员和函数 ====
+public:
+	// FFT/IFFT相关函数
+	bool ComputeFFT2D();                    // 计算二维FFT
+	bool ComputeIFFT2D();                   // 计算二维IFFT
+	void ShowSpectrum(CDC* pDC);            // 显示频谱图
+	bool IsFFTValid() const { return m_bFFTValid; }  // 检查FFT是否已计算
+	void SwitchToFrequencyDomain();         // 切换到频域显示
+	void SwitchToSpatialDomain();           // 切换回空域显示
+
 private:
 	// ========== 频域复原辅助结构 ==========
 	struct ComplexNumber {

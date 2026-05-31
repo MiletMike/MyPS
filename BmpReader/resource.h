@@ -91,6 +91,7 @@
 #define IDD_KERNELSIZE                  320
 #define IDD_DIALOG2                     328
 #define IDD_INPUT_DLG                   328
+#define IDD_DIALOG3                     330
 #define IDC_COORD_TEXT                  1000
 #define IDC_COLOR                       1001
 #define IDC_COLOR_TEXT                  1001
@@ -168,6 +169,7 @@
 #define ID_PROCESS_MULTIPLY_IMAGES      32831
 #define ID_PROCESS_RESTORE_ORIGINAL     32832
 #define ID_PROCESS_LAPLACIAN            32833
+#define ID_PROCESS_SHOW_SPECTRUM        32833
 #define ID_PROCESS_POWER_LAW            32834
 #define ID_PROCESS_INVERSE_FILTER       32835
 #define ID_PROCESS_WIENER_FILTER        32836

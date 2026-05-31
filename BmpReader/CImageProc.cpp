@@ -8,7 +8,9 @@
 #include <ctime>
 #include <cstdlib>
 #include <vector>
+#include <float.h>
 #include "HistogramDlg.h"
+#include <complex>
 
 CImageProc::CImageProc()
     : m_nWidth(0), m_nHeight(0), m_pRGB24(nullptr)
@@ -27,6 +29,11 @@ CImageProc::CImageProc()
     m_pOriginalRGB24 = nullptr;
     m_nOriginalWidth = 0;
     m_nOriginalHeight = 0;
+    m_pFFTData = nullptr;
+    m_bFFTValid = false;
+    m_bInFrequencyDomain = false;
+    m_nFFTWidth = 0;
+    m_nFFTHeight = 0;
 }
 
 CImageProc::~CImageProc()
@@ -39,6 +46,8 @@ CImageProc::~CImageProc()
     delete pBits;
     if (m_hDib != NULL) GlobalUnlock(m_hDib);
     if (m_pOriginalRGB24) { delete[] m_pOriginalRGB24; m_pOriginalRGB24 = nullptr; }
+    if (m_pFFTData) { delete[] m_pFFTData;    m_pFFTData = nullptr; }
+
 }
 
 void CImageProc::CleanUp()
@@ -48,6 +57,11 @@ void CImageProc::CleanUp()
     if (m_hDib) { ::GlobalFree(m_hDib); m_hDib = NULL; }
     if (m_pRGB24) { delete[] m_pRGB24; m_pRGB24 = nullptr; }
     if (m_pOriginalRGB24) { delete[] m_pOriginalRGB24; m_pOriginalRGB24 = nullptr; }
+    if (m_pFFTData) { delete[] m_pFFTData; m_pFFTData = nullptr; }
+    m_bFFTValid = false;
+    m_bInFrequencyDomain = false;
+    m_nFFTWidth = 0;
+    m_nFFTHeight = 0;
 }
 
 void CImageProc::OpenFile()
@@ -938,30 +952,22 @@ void CImageProc::AddWhiteGaussianNoise(double mean, double stddev)
     AddGaussianNoise(mean, stddev);
 }
 
-// ============================================
-// Sobel 边缘检测（支持 3x3, 5x5 等核大小）
-// 根据PPT：Sobel算子考虑中心权重，对噪声有一定抑制
-// ============================================
 void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryOutput)
 {
     if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0) return;
 
-    // 确保核大小为奇数且至少为3
     if (kernelSize < 3) kernelSize = 3;
     if (kernelSize % 2 == 0) kernelSize++;
 
-    // 限制最大核大小（避免性能问题）
     const int MAX_KERNEL = 7;
     if (kernelSize > MAX_KERNEL) kernelSize = MAX_KERNEL;
 
-    // 转换为灰度图
     ConvertToGray();
 
     int width = m_nWidth;
     int height = m_nHeight;
     int bytesPerLine = ((width * 24 + 31) / 32) * 4;
 
-    // 备份灰度数据
     BYTE* src = new BYTE[width * height];
     for (int y = 0; y < height; y++) {
         BYTE* pRow = m_pRGB24 + y * bytesPerLine;
@@ -973,35 +979,27 @@ void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryO
     int half = kernelSize / 2;
     int kernelArea = kernelSize * kernelSize;
 
-    // 动态生成 Sobel-X 和 Sobel-Y 算子
-    // 根据PPT：Sobel算子中心系数权重高，边缘系数权重低
     int* sobelX = new int[kernelArea];
     int* sobelY = new int[kernelArea];
     memset(sobelX, 0, sizeof(int) * kernelArea);
     memset(sobelY, 0, sizeof(int) * kernelArea);
 
-    // 生成 Sobel 算子（参考PPT中的3x3 [-1,0,1; -2,0,2; -1,0,1]）
-    // 对于更大尺寸，使用扩展 Sobel 算子
-    for (int i = 0; i < kernelSize; i++) {
-        for (int j = 0; j < kernelSize; j++) {
-            // 计算距离中心的偏移
-            int dx = j - half;
-            int dy = i - half;
-
-            // Sobel-X：水平方向差分，垂直方向平滑
-            if (kernelSize == 3) {
-                // 标准3x3 Sobel算子
-                sobelX[i * kernelSize + j] = (dx == -1) ? -1 : ((dx == 1) ? 1 : 0) * (dy == 0 ? 2 : 1);
-                sobelY[i * kernelSize + j] = (dy == -1) ? -1 : ((dy == 1) ? 1 : 0) * (dx == 0 ? 2 : 1);
-            }
-            else {
-                // 扩展 Sobel 算子（5x5, 7x7）
-                // 使用高斯平滑和差分组合
+    if (kernelSize == 3) {
+        sobelX[0] = -1; sobelX[1] = 0; sobelX[2] = 1;
+        sobelX[3] = -2; sobelX[4] = 0; sobelX[5] = 2;
+        sobelX[6] = -1; sobelX[7] = 0; sobelX[8] = 1;
+        sobelY[0] = -1; sobelY[1] = -2; sobelY[2] = -1;
+        sobelY[3] = 0;  sobelY[4] = 0;  sobelY[5] = 0;
+        sobelY[6] = 1;  sobelY[7] = 2;  sobelY[8] = 1;
+    }
+    else {
+        for (int i = 0; i < kernelSize; i++) {
+            for (int j = 0; j < kernelSize; j++) {
+                int dx = j - half;
+                int dy = i - half;
                 double gaussian = exp(-(dx * dx + dy * dy) / (2.0 * (half / 1.5) * (half / 1.5)));
                 if (abs(dx) <= half && abs(dy) <= half) {
-                    // Sobel-X：水平差分
                     double weightX = (dx == -half) ? -1 : ((dx == half) ? 1 : 0) * gaussian;
-                    // Sobel-Y：垂直差分
                     double weightY = (dy == -half) ? -1 : ((dy == half) ? 1 : 0) * gaussian;
                     sobelX[i * kernelSize + j] = (int)(weightX * 10);
                     sobelY[i * kernelSize + j] = (int)(weightY * 10);
@@ -1010,20 +1008,6 @@ void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryO
         }
     }
 
-    // 修正3x3 Sobel算子的具体值（确保精确匹配）
-    if (kernelSize == 3) {
-        // Sobel-X: [-1,0,1; -2,0,2; -1,0,1]
-        sobelX[0] = -1; sobelX[1] = 0; sobelX[2] = 1;
-        sobelX[3] = -2; sobelX[4] = 0; sobelX[5] = 2;
-        sobelX[6] = -1; sobelX[7] = 0; sobelX[8] = 1;
-
-        // Sobel-Y: [-1,-2,-1; 0,0,0; 1,2,1]
-        sobelY[0] = -1; sobelY[1] = -2; sobelY[2] = -1;
-        sobelY[3] = 0;  sobelY[4] = 0;  sobelY[5] = 0;
-        sobelY[6] = 1;  sobelY[7] = 2;  sobelY[8] = 1;
-    }
-
-    // 存储梯度幅值
     double* magnitude = new double[width * height];
     memset(magnitude, 0, sizeof(double) * width * height);
 
@@ -1031,11 +1015,9 @@ void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryO
     double sumMag = 0;
     int magCount = 0;
 
-    // 计算梯度
     for (int y = half; y < height - half; y++) {
         for (int x = half; x < width - half; x++) {
             double gx = 0, gy = 0;
-
             for (int ky = -half; ky <= half; ky++) {
                 for (int kx = -half; kx <= half; kx++) {
                     int pixel = src[(y + ky) * width + (x + kx)];
@@ -1044,27 +1026,21 @@ void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryO
                     gy += pixel * sobelY[kidx];
                 }
             }
-
-            // 计算梯度幅值（使用L2范数）
             double mag = sqrt(gx * gx + gy * gy);
             magnitude[y * width + x] = mag;
-
             if (mag > maxMag) maxMag = mag;
             sumMag += mag;
             if (mag > 0) magCount++;
         }
     }
 
-    // 确定阈值
     int finalThreshold = threshold;
     if (finalThreshold <= 0 && magCount > 0) {
-        // 自适应阈值：使用均值的1.5倍
         finalThreshold = (int)((sumMag / magCount) * 1.5);
         if (finalThreshold < 10) finalThreshold = 10;
         if (finalThreshold > 100) finalThreshold = 100;
     }
 
-    // 输出结果
     for (int y = 0; y < height; y++) {
         BYTE* pRow = m_pRGB24 + y * bytesPerLine;
         for (int x = 0; x < width; x++) {
@@ -1072,11 +1048,9 @@ void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryO
             if (x >= half && x < width - half && y >= half && y < height - half) {
                 double mag = magnitude[y * width + x];
                 if (bBinaryOutput) {
-                    // 二值边缘图
                     val = (mag > finalThreshold) ? 255 : 0;
                 }
                 else {
-                    // 灰度边缘图（归一化）
                     if (maxMag > 0) {
                         val = (BYTE)((mag / maxMag) * 255);
                     }
@@ -1092,7 +1066,6 @@ void CImageProc::SobelEdgeDetection(int kernelSize, int threshold, bool bBinaryO
         }
     }
 
-    // 释放内存
     delete[] src;
     delete[] sobelX;
     delete[] sobelY;
@@ -1253,11 +1226,9 @@ void CImageProc::LaplacianEdgeDetection(int kernelSize, int threshold)
     int height = m_nHeight;
     int bytesPerLine = ((width * 24 + 31) / 32) * 4;
 
-    // 备份原始图像数据
     BYTE* original = new BYTE[bytesPerLine * height];
     memcpy(original, m_pRGB24, bytesPerLine * height);
 
-    // 转换为灰度计算拉普拉斯边缘
     BYTE* gray = new BYTE[width * height];
     for (int y = 0; y < height; y++) {
         BYTE* pRow = m_pRGB24 + y * bytesPerLine;
@@ -1269,26 +1240,21 @@ void CImageProc::LaplacianEdgeDetection(int kernelSize, int threshold)
         }
     }
 
-    // 根据 kernelSize 选择拉普拉斯算子
     int laplacian[9];
     if (kernelSize == 1) {
-        // 4邻域版本：[0,-1,0; -1,4,-1; 0,-1,0]
         laplacian[0] = 0;  laplacian[1] = -1; laplacian[2] = 0;
         laplacian[3] = -1; laplacian[4] = 4;  laplacian[5] = -1;
         laplacian[6] = 0;  laplacian[7] = -1; laplacian[8] = 0;
     }
     else {
-        // 8邻域版本：[-1,-1,-1; -1,8,-1; -1,-1,-1]（默认）
         laplacian[0] = -1; laplacian[1] = -1; laplacian[2] = -1;
         laplacian[3] = -1; laplacian[4] = 8;  laplacian[5] = -1;
         laplacian[6] = -1; laplacian[7] = -1; laplacian[8] = -1;
     }
 
-    // 存储拉普拉斯边缘响应
     int* edge = new int[width * height];
     memset(edge, 0, sizeof(int) * width * height);
 
-    // 计算拉普拉斯响应
     for (int y = 1; y < height - 1; y++) {
         for (int x = 1; x < width - 1; x++) {
             int sum = 0;
@@ -1303,10 +1269,8 @@ void CImageProc::LaplacianEdgeDetection(int kernelSize, int threshold)
         }
     }
 
-    // 确定阈值
     int finalThreshold = threshold;
     if (finalThreshold <= 0) {
-        // 自适应阈值计算
         int sumResponse = 0;
         int responseCount = 0;
         for (int y = 1; y < height - 1; y++) {
@@ -1326,8 +1290,7 @@ void CImageProc::LaplacianEdgeDetection(int kernelSize, int threshold)
         }
     }
 
-    // 锐化增强：输出 = 原图 + c * 拉普拉斯边缘
-    double c = 0.8;  // 锐化强度系数
+    double c = 0.8;
 
     for (int y = 0; y < height; y++) {
         BYTE* pRow = m_pRGB24 + y * bytesPerLine;
@@ -1336,7 +1299,6 @@ void CImageProc::LaplacianEdgeDetection(int kernelSize, int threshold)
             int edgeValue = (y >= 1 && y < height - 1 && x >= 1 && x < width - 1)
                 ? edge[y * width + x] : 0;
 
-            // 对RGB三个通道分别进行锐化
             for (int cIdx = 0; cIdx < 3; cIdx++) {
                 int newVal = pOriginal[x * 3 + cIdx] + (int)(c * edgeValue);
                 if (newVal < 0) newVal = 0;
@@ -1346,7 +1308,6 @@ void CImageProc::LaplacianEdgeDetection(int kernelSize, int threshold)
         }
     }
 
-    // 释放内存
     delete[] original;
     delete[] gray;
     delete[] edge;
