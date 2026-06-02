@@ -1707,3 +1707,8 @@ void CImageProc::WienerFilter(int blurType, double p1, double p2, double p3, dou
     delete[] H;
     delete[] F;
 }
+bool CImageProc::ComputeFFT2D() { return false; }
+bool CImageProc::ComputeIFFT2D() { return false; }
+void CImageProc::ShowSpectrum(CDC* pDC) {}
+void CImageProc::SwitchToFrequencyDomain() {}
+void CImageProc::SwitchToSpatialDomain() {}

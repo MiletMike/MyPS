@@ -66,9 +66,6 @@ public:
 	// 伪彩色
 	void ApplyPseudoColor(int scheme = SCHEME_DEFAULT);
 
-	// 保存原始图像数据（用于恢复）
-	void SaveOriginalData();
-
 	// FFT/IFFT相关函数
 	bool ComputeFFT2D();                    // 计算二维FFT
 	bool ComputeIFFT2D();                   // 计算二维IFFT
@@ -100,17 +97,7 @@ public:
 		SCHEME_INVERT
 	};
 
-	void ApplyPseudoColor(int scheme = SCHEME_DEFAULT);
 
-	// ==== 新增：FFT相关成员和函数 ====
-public:
-	// FFT/IFFT相关函数
-	bool ComputeFFT2D();                    // 计算二维FFT
-	bool ComputeIFFT2D();                   // 计算二维IFFT
-	void ShowSpectrum(CDC* pDC);            // 显示频谱图
-	bool IsFFTValid() const { return m_bFFTValid; }  // 检查FFT是否已计算
-	void SwitchToFrequencyDomain();         // 切换到频域显示
-	void SwitchToSpatialDomain();           // 切换回空域显示
 
 private:
 	// ========== 频域复原辅助结构 ==========
@@ -148,4 +135,11 @@ private:
 	BYTE* m_pOriginalRGB24;      // 原始图像数据备份
 	int m_nOriginalWidth;        // 原始图像宽度
 	int m_nOriginalHeight;       // 原始图像高度
+
+	// FFT 相关成员变量
+	ComplexNumber* m_pFFTData;   // FFT 数据（复数数组）
+	bool m_bFFTValid;            // FFT 是否已计算且有效
+	bool m_bInFrequencyDomain;   // 是否处于频域模式（预留）
+	int m_nFFTWidth;             // FFT 变换宽度（填充后的 2 的幂）
+	int m_nFFTHeight;            // FFT 变换高度（填充后的 2 的幂）
 };
