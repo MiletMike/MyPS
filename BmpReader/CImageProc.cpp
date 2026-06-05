@@ -1707,6 +1707,143 @@ void CImageProc::WienerFilter(int blurType, double p1, double p2, double p3, dou
     delete[] H;
     delete[] F;
 }
+
+void CImageProc::AddMotionBlur(double a, double b, double T)
+{
+    if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0) return;
+    ConvertToGray();
+    int width = m_nWidth;
+    int height = m_nHeight;
+    int bytesPerLine = ((width * 24 + 31) / 32) * 4;
+
+    BYTE* gray = new BYTE[width * height];
+    double meanVal = 0.0;
+    for (int y = 0; y < height; y++) {
+        BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+        for (int x = 0; x < width; x++) {
+            BYTE v = pRow[x * 3];
+            gray[y * width + x] = v;
+            meanVal += v;
+        }
+    }
+    meanVal /= (width * height);
+
+    double* window = new double[width * height];
+    TukeyWindow(window, width, height, 0.15);
+
+    int fftW = NextPow2(width);
+    int fftH = NextPow2(height);
+    int total = fftW * fftH;
+
+    ComplexNumber* G = new ComplexNumber[total];
+    memset(G, 0, sizeof(ComplexNumber) * total);
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            double pixelVal = (gray[y * width + x] - meanVal) * window[y * width + x];
+            double shift = ((x + y) & 1) ? -1.0 : 1.0;
+            G[y * fftW + x] = ComplexNumber(pixelVal * shift, 0);
+        }
+    }
+    delete[] window;
+
+    FFT2D(G, fftW, fftH, false);
+
+    ComplexNumber* H = new ComplexNumber[total];
+    GenerateMotionPSF(H, fftW, fftH, a, b, T);
+
+    ComplexNumber* B = new ComplexNumber[total];
+    for (int i = 0; i < total; i++) {
+        B[i] = H[i] * G[i];
+    }
+
+    FFT2D(B, fftW, fftH, true);
+
+    for (int y = 0; y < height; y++) {
+        BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+        for (int x = 0; x < width; x++) {
+            double shift = ((x + y) & 1) ? -1.0 : 1.0;
+            double v = B[y * fftW + x].real * shift + meanVal;
+            int val = (int)(v + 0.5);
+            if (val < 0) val = 0;
+            if (val > 255) val = 255;
+            pRow[x * 3] = pRow[x * 3 + 1] = pRow[x * 3 + 2] = (BYTE)val;
+        }
+    }
+
+    delete[] gray;
+    delete[] G;
+    delete[] H;
+    delete[] B;
+}
+
+void CImageProc::AddTurbulenceBlur(double k)
+{
+    if (!m_pRGB24 || m_nWidth <= 0 || m_nHeight <= 0) return;
+    ConvertToGray();
+    int width = m_nWidth;
+    int height = m_nHeight;
+    int bytesPerLine = ((width * 24 + 31) / 32) * 4;
+
+    BYTE* gray = new BYTE[width * height];
+    double meanVal = 0.0;
+    for (int y = 0; y < height; y++) {
+        BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+        for (int x = 0; x < width; x++) {
+            BYTE v = pRow[x * 3];
+            gray[y * width + x] = v;
+            meanVal += v;
+        }
+    }
+    meanVal /= (width * height);
+
+    double* window = new double[width * height];
+    TukeyWindow(window, width, height, 0.15);
+
+    int fftW = NextPow2(width);
+    int fftH = NextPow2(height);
+    int total = fftW * fftH;
+
+    ComplexNumber* G = new ComplexNumber[total];
+    memset(G, 0, sizeof(ComplexNumber) * total);
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            double pixelVal = (gray[y * width + x] - meanVal) * window[y * width + x];
+            double shift = ((x + y) & 1) ? -1.0 : 1.0;
+            G[y * fftW + x] = ComplexNumber(pixelVal * shift, 0);
+        }
+    }
+    delete[] window;
+
+    FFT2D(G, fftW, fftH, false);
+
+    ComplexNumber* H = new ComplexNumber[total];
+    GenerateTurbulencePSF(H, fftW, fftH, k);
+
+    ComplexNumber* B = new ComplexNumber[total];
+    for (int i = 0; i < total; i++) {
+        B[i] = H[i] * G[i];
+    }
+
+    FFT2D(B, fftW, fftH, true);
+
+    for (int y = 0; y < height; y++) {
+        BYTE* pRow = m_pRGB24 + y * bytesPerLine;
+        for (int x = 0; x < width; x++) {
+            double shift = ((x + y) & 1) ? -1.0 : 1.0;
+            double v = B[y * fftW + x].real * shift + meanVal;
+            int val = (int)(v + 0.5);
+            if (val < 0) val = 0;
+            if (val > 255) val = 255;
+            pRow[x * 3] = pRow[x * 3 + 1] = pRow[x * 3 + 2] = (BYTE)val;
+        }
+    }
+
+    delete[] gray;
+    delete[] G;
+    delete[] H;
+    delete[] B;
+}
+
 bool CImageProc::ComputeFFT2D() { return false; }
 bool CImageProc::ComputeIFFT2D() { return false; }
 void CImageProc::ShowSpectrum(CDC* pDC) {}

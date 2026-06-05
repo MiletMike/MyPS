@@ -53,6 +53,8 @@ public:
 	// ====================================
 	void SobelEdgeDetection(int kernelSize = 3, int threshold = 80, bool bBinaryOutput = true);
 	void PrewittEdgeDetection(int kernelSize = 3, int threshold = 80);
+	void AddMotionBlur(double a = 0.1, double b = 0.1, double T = 1.0);
+	void AddTurbulenceBlur(double k = 0.0025);
 
 	// 噪声添加函数
 	void AddSaltPepperNoise(double saltProb = 0.05, double pepperProb = 0.05);

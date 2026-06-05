@@ -57,6 +57,8 @@ BEGIN_MESSAGE_MAP(CBmpReaderView, CView)
     ON_COMMAND(ID_PROCESS_POWER_LAW, &CBmpReaderView::OnProcessPowerLaw)
     ON_COMMAND(ID_PROCESS_INVERSE_FILTER, &CBmpReaderView::OnProcessInverseFilter)
     ON_COMMAND(ID_PROCESS_WIENER_FILTER, &CBmpReaderView::OnProcessWienerFilter)
+  ON_COMMAND(ID_PROCESS_MOTION_BLUR, &CBmpReaderView::OnProcessMotionBlur)
+  ON_COMMAND(ID_PROCESS_TURBULENCE_BLUR, &CBmpReaderView::OnProcessTurbulenceBlur)
 END_MESSAGE_MAP()
 
 CBmpReaderView::CBmpReaderView()
@@ -966,5 +968,75 @@ void CBmpReaderView::OnProcessWienerFilter()
         else
             msg.Format(_T("维纳滤波完成！\n类型: 大气湍流\nk=%.4f\nK=%.3f"), p1, K);
     }
+    AfxMessageBox(msg);
+}
+
+void CBmpReaderView::OnProcessMotionBlur()
+{
+    CBmpReaderDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->m_pRGB24)
+    {
+        AfxMessageBox(_T("请先打开图像"));
+        return;
+    }
+
+    int blurResult = AfxMessageBox(_T("选择运动模糊参数：\n是 - 使用默认参数 (a=0.10, b=0.10, T=1.00)\n否 - 自定义参数"),
+        MB_YESNOCANCEL);
+    if (blurResult == IDCANCEL) return;
+
+    double a = 0.1, b = 0.1, T = 1.0;
+
+    if (blurResult == IDNO)
+    {
+        CKernelSizeDlg dlgA(_T("【运动模糊参数 a (×100)】\na 为水平方向运动分量\n推荐值: 10 (即 0.10)"), 10, 1, 50);
+        if (dlgA.DoModal() != IDOK) return;
+        a = dlgA.m_nValue / 100.0;
+
+        CKernelSizeDlg dlgB(_T("【运动模糊参数 b (×100)】\nb 为垂直方向运动分量\n推荐值: 10 (即 0.10)"), 10, 0, 50);
+        if (dlgB.DoModal() != IDOK) return;
+        b = dlgB.m_nValue / 100.0;
+
+        CKernelSizeDlg dlgT(_T("【运动模糊参数 T (×100)】\nT 为曝光时间\n推荐值: 100 (即 1.00)"), 100, 1, 200);
+        if (dlgT.DoModal() != IDOK) return;
+        T = dlgT.m_nValue / 100.0;
+    }
+
+    pDoc->pImage->AddMotionBlur(a, b, T);
+    Invalidate();
+    UpdateHistogramWindow();
+
+    CString msg;
+    msg.Format(_T("运动模糊处理完成！\na=%.2f, b=%.2f, T=%.2f"), a, b, T);
+    AfxMessageBox(msg);
+}
+
+void CBmpReaderView::OnProcessTurbulenceBlur()
+{
+    CBmpReaderDoc* pDoc = GetDocument();
+    if (!pDoc || !pDoc->pImage || !pDoc->pImage->m_pRGB24)
+    {
+        AfxMessageBox(_T("请先打开图像"));
+        return;
+    }
+
+    int blurResult = AfxMessageBox(_T("选择大气湍流模糊参数：\n是 - 使用默认参数 (k=0.0025)\n否 - 自定义参数"),
+        MB_YESNOCANCEL);
+    if (blurResult == IDCANCEL) return;
+
+    double k = 0.0025;
+
+    if (blurResult == IDNO)
+    {
+        CKernelSizeDlg dlgK(_T("【大气湍流参数 k (×10000)】\nk 值越大模糊越严重\n推荐值: 25 (即 0.0025)"), 25, 1, 500);
+        if (dlgK.DoModal() != IDOK) return;
+        k = dlgK.m_nValue / 10000.0;
+    }
+
+    pDoc->pImage->AddTurbulenceBlur(k);
+    Invalidate();
+    UpdateHistogramWindow();
+
+    CString msg;
+    msg.Format(_T("大气湍流模糊处理完成！\nk=%.4f"), k);
     AfxMessageBox(msg);
 }

@@ -72,6 +72,8 @@ public:
 	afx_msg void OnProcessPowerLaw();           // 幂律变换
 	afx_msg void OnProcessInverseFilter();      // 逆滤波
 	afx_msg void OnProcessWienerFilter();       // 维纳滤波
+	afx_msg void OnProcessMotionBlur();         // 运动模糊
+	afx_msg void OnProcessTurbulenceBlur();     // 大气湍流模糊
 	afx_msg LRESULT OnDestroyHistogramDlg(WPARAM, LPARAM);
 	afx_msg LRESULT OnDestroyAdaptiveDlg(WPARAM, LPARAM);
 	void UpdateHistogramWindow();
