@@ -68,7 +68,6 @@ CBmpReaderView::CBmpReaderView()
     m_zoomFactor = 1.0;
     m_pHistogramDlg = NULL;
     m_pAdaptiveHistoDlg = NULL;
-    m_bShowSpectrum = FALSE;
 }
 
 CBmpReaderView::~CBmpReaderView()
@@ -96,11 +95,7 @@ void CBmpReaderView::OnDraw(CDC* pDC)
     ASSERT_VALID(pDoc);
     if (!pDoc) return;
 
-    if (m_bShowSpectrum && pDoc->pImage && pDoc->pImage->IsFFTValid())
-    {
-        pDoc->pImage->ShowSpectrum(pDC);
-    }
-    else if (pDoc->pImage && pDoc->pImage->m_pRGB24)
+    if (pDoc->pImage && pDoc->pImage->m_pRGB24)
     {
         int nWidth = pDoc->pImage->m_nWidth;
         int nHeight = pDoc->pImage->m_nHeight;

@@ -62,19 +62,8 @@ public:
 	void AddGaussianNoise(double mean = 0, double stddev = 25);
 	void AddWhiteGaussianNoise(double mean = 0, double stddev = 30);
 
-	// 同态滤波函数
-	void HomomorphicFilter(float gammaH = 2.0f, float gammaL = 0.5f, float c = 1.0f, float D0 = 30.0f);
-
 	// 伪彩色
 	void ApplyPseudoColor(int scheme = SCHEME_DEFAULT);
-
-	// FFT/IFFT相关函数
-	bool ComputeFFT2D();                    // 计算二维FFT
-	bool ComputeIFFT2D();                   // 计算二维IFFT
-	void ShowSpectrum(CDC* pDC);            // 显示频谱图
-	bool IsFFTValid() const { return m_bFFTValid; }  // 检查FFT是否已计算
-	void SwitchToFrequencyDomain();         // 切换到频域显示
-	void SwitchToSpatialDomain();           // 切换回空域显示
 
 	// 成员变量
 	HANDLE      m_hDib;
@@ -138,10 +127,4 @@ private:
 	int m_nOriginalWidth;        // 原始图像宽度
 	int m_nOriginalHeight;       // 原始图像高度
 
-	// FFT 相关成员变量
-	ComplexNumber* m_pFFTData;   // FFT 数据（复数数组）
-	bool m_bFFTValid;            // FFT 是否已计算且有效
-	bool m_bInFrequencyDomain;   // 是否处于频域模式（预留）
-	int m_nFFTWidth;             // FFT 变换宽度（填充后的 2 的幂）
-	int m_nFFTHeight;            // FFT 变换高度（填充后的 2 的幂）
 };

@@ -29,11 +29,6 @@ CImageProc::CImageProc()
     m_pOriginalRGB24 = nullptr;
     m_nOriginalWidth = 0;
     m_nOriginalHeight = 0;
-    m_pFFTData = nullptr;
-    m_bFFTValid = false;
-    m_bInFrequencyDomain = false;
-    m_nFFTWidth = 0;
-    m_nFFTHeight = 0;
 }
 
 CImageProc::~CImageProc()
@@ -46,7 +41,6 @@ CImageProc::~CImageProc()
     delete pBits;
     if (m_hDib != NULL) GlobalUnlock(m_hDib);
     if (m_pOriginalRGB24) { delete[] m_pOriginalRGB24; m_pOriginalRGB24 = nullptr; }
-    if (m_pFFTData) { delete[] m_pFFTData;    m_pFFTData = nullptr; }
 
 }
 
@@ -57,11 +51,6 @@ void CImageProc::CleanUp()
     if (m_hDib) { ::GlobalFree(m_hDib); m_hDib = NULL; }
     if (m_pRGB24) { delete[] m_pRGB24; m_pRGB24 = nullptr; }
     if (m_pOriginalRGB24) { delete[] m_pOriginalRGB24; m_pOriginalRGB24 = nullptr; }
-    if (m_pFFTData) { delete[] m_pFFTData; m_pFFTData = nullptr; }
-    m_bFFTValid = false;
-    m_bInFrequencyDomain = false;
-    m_nFFTWidth = 0;
-    m_nFFTHeight = 0;
 }
 
 void CImageProc::OpenFile()
@@ -1843,9 +1832,3 @@ void CImageProc::AddTurbulenceBlur(double k)
     delete[] H;
     delete[] B;
 }
-
-bool CImageProc::ComputeFFT2D() { return false; }
-bool CImageProc::ComputeIFFT2D() { return false; }
-void CImageProc::ShowSpectrum(CDC* pDC) {}
-void CImageProc::SwitchToFrequencyDomain() {}
-void CImageProc::SwitchToSpatialDomain() {}

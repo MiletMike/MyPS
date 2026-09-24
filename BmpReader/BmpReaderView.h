@@ -82,7 +82,6 @@ public:
 
 private:
 	BOOL m_bShowColorDlg;
-	BOOL m_bShowSpectrum;
 	CHistogramDlg* m_pHistogramDlg;
 	CBlockSizeDlg* m_pAdaptiveHistoDlg;
 
